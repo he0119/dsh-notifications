@@ -1,6 +1,6 @@
 {
   "name": "@he0119/dsh-notifications",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "离开 DSH 窗口后的会话提醒：任务完成、意外中止、需要回答或等待审批时，用声音和系统弹窗提醒，点击返回对应会话。",
   "type": "module",
   "packageManager": "pnpm@11.7.0",
