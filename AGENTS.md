@@ -66,9 +66,9 @@ pnpm run typecheck && pnpm run build && pnpm test && pnpm run check:package
   `@deepseek-ai/cordis`、`dsh-client-store`、`dsh-client-ui-slots`、`dsh-client-ui-primitives`、
   `dsh-client-ui-dockkit`——这些在 `tsdown.config.ts` 的 `CLIENT_BASELINE` 里保持外置，其余内联。
   要引新的非基线模块，先确认宿主提供它，再同时改那张表和 `test/package-artifact.spec.ts` 的外置清单。
-- **标识符不许和 Cyaness Tools 混用**：包名与插件行 `dsh-notifications`、接口命名空间
-  `dshNotifications`、Service Worker 路径 `/dsh-notifications/sw.js`、Windows 协议
-  `dsh-notifications`、助手目录 `%LOCALAPPDATA%\DshNotifications`、IndexedDB 库名各自一份。
+- **标识符不许和 Cyaness Tools 混用**：npm 包名 `@he0119/dsh-notifications`、插件行 id
+  `dsh-notifications`、接口命名空间 `dshNotifications`、Service Worker 路径 `/dsh-notifications/sw.js`、
+  Windows 协议 `dsh-notifications`、助手目录 `%LOCALAPPDATA%\DshNotifications`、IndexedDB 库名各自一份。
   两边共用一个名字会互相覆盖注册与数据。
 - **只对主会话发通知**：`origin === 'subagent'` 或 `delegationDepth > 0` 的会话在宿主事件源
   （`src/host.ts` 的 `publish()`）就丢掉，桌面投递器再按同一条件挡一次。放宽之前先想清「一次任务里

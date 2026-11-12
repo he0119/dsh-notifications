@@ -11,9 +11,9 @@ Worker 路径、Windows 协议、本机存储库名，只要两边共用一套�
 
 ## Decision
 
-通知单独成包 `dsh-notifications`，只做提醒一件事，并且标识符全部独立：
+通知单独成包 `@he0119/dsh-notifications`，只做提醒一件事，并且标识符全部独立：
 
-- 插件行 id 与 npm 包名 `dsh-notifications`；
+- npm 包名 `@he0119/dsh-notifications`，插件行 id `dsh-notifications`；
 - Remote 命名空间 `dshNotifications`，编解码由本包自己的 `@Remote` 方法生成；
 - Service Worker 路径 `/dsh-notifications/sw.js`，作用域 `/dsh-notifications/`；
 - Windows 协议 `dsh-notifications`，助手目录 `%LOCALAPPDATA%\DshNotifications`；

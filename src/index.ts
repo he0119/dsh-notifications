@@ -5,7 +5,7 @@ import { installRuntimeMetadata } from './runtime/metadata.ts'
 import type {} from '@deepseek-ai/dsh-api-remote-access'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { Config, readNotificationsConfig, type NotificationsConfig } from './config.ts'
-import { PLUGIN_NAME } from './constants.ts'
+import { PLUGIN_ROW_ID } from './constants.ts'
 import { Notifications } from './runtime/index.ts'
 import { activateDesktopApp } from './activation.ts'
 import { createNotificationHost } from './host.ts'
@@ -13,8 +13,8 @@ import { installNotificationWorkerRoute } from './web.ts'
 import { createDesktopNotificationHost } from './desktop-host.ts'
 import { createWindowsNotifications } from './windows/carrier.ts'
 export { Config }
-/** Plugin row id, matching `cordis.patch.yml`. */
-export const name = PLUGIN_NAME
+/** Plugin row id, matching `id` in `cordis.patch.yml`. */
+export const name = PLUGIN_ROW_ID
 /** Native services this plugin needs: committed session outcomes, the Remote gateway and caller access. */
 export const inject = ['sessions', 'agents', 'typert', 'typertGateway', 'remoteAccess']
 /** @param ctx - native component owner. @param config - accepted per-category preferences. */

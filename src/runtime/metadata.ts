@@ -13,5 +13,5 @@ export function installRuntimeMetadata(ctx: Context): void {
   ctx.effect(() => {
     const withdraw = ctx.typert.register(contribution)
     return () => withdraw()
-  }, 'dsh-notifications: metadata')
+  }, '@he0119/dsh-notifications: metadata')
 }

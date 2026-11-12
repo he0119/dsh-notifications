@@ -95,7 +95,7 @@ pnpm run pack:release # 构建并打包到 artifacts/
 
 ## 与 Cyaness Tools 内置通知的关系
 
-这个包是从 Cyaness Tools（`dsh-cyaness-tool`）的通知组件拆出来的，代码逻辑一致，但**标识符全部独立**：插件行 id 是 `dsh-notifications`，接口命名空间是 `dshNotifications`，Worker 路径、Windows 协议与助手目录、IndexedDB 库名也各自一份。两边的数据与注册互相不覆盖。
+这个包是从 Cyaness Tools（`dsh-cyaness-tool`）的通知组件拆出来的，代码逻辑一致，但**标识符全部独立**：插件行 id 是 `dsh-notifications`（包名 `@he0119/dsh-notifications` 只用于 npm 与客户端模块 id），接口命名空间是 `dshNotifications`，Worker 路径、Windows 协议与助手目录、IndexedDB 库名也各自一份。两边的数据与注册互相不覆盖。
 
 代价是：如果同一个人同时启用两边的通知，两边都会响、都会弹。用哪个就只启用哪个。
 

@@ -50,7 +50,7 @@ export async function generateRuntimeArtifacts({ outputDirectory = join(runtimeD
     await writeFile(join(protocol, 'tsconfig.json'), JSON.stringify({ compilerOptions, include: ['src/**/*.d.ts'] }))
     const artifacts = new WorkspaceTypertGenerator(stage).generate([manifest.name], ['host'])
     const artifact = artifacts.find(item => item.face === 'host')
-    if (!artifact?.remote) throw new Error('dsh-notifications: native runtime generation produced no Remote API')
+    if (!artifact?.remote) throw new Error('@he0119/dsh-notifications: native runtime generation produced no Remote API')
     const files = [
       ['typert.host.js', artifact.js], ['typert.host.d.ts', artifact.dts],
       ['typert.remote-client.js', artifact.remote.js], ['typert.remote-client.d.ts', artifact.remote.dts],

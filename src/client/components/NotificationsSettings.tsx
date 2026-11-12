@@ -11,7 +11,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { NotificationKind, NotificationSettings, NotificationSound } from '../../runtime/types.ts'
-import { LOCALE_NS, PLUGIN_NAME } from '../../constants.ts'
+import { LOCALE_NS, PACKAGE_NAME } from '../../constants.ts'
 import type { NotificationClient } from '../logic/delivery.ts'
 import type { NotificationSettingsInjected } from '../logic/slots.ts'
 import type {} from '../logic/slots.ts'
@@ -111,6 +111,6 @@ export function installNotificationsCard(ctx: Context, { form, client }: { form:
   ctx.effect(() => form.subscribe(() => client.refresh()))
   // 这个槽位由插件页在运行时声明，所以 inject 要等它出现再注册。
   ctx.slots.inject(PLUGIN_CONFIG_SLOT, () => ctx.slots.register({
-    name: PLUGIN_CONFIG_SLOT, key: PLUGIN_NAME, locale: LOCALE_NS, inject: () => injected,
+    name: PLUGIN_CONFIG_SLOT, key: PACKAGE_NAME, locale: LOCALE_NS, inject: () => injected,
   }, NotificationsSettings))
 }

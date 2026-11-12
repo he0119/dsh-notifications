@@ -8,7 +8,7 @@
 ```sh
 pnpm run build           # 生成接口编解码 + 打出 lib/index.js 与 lib/client.js
 pnpm run check:package   # 用 npm 自己的打包规则核对内容（要先 build）
-pnpm run pack:release    # 构建并打包到 artifacts/，产物是 dsh-notifications-<版本>.tgz
+pnpm run pack:release    # 构建并打包到 artifacts/，产物是 he0119-dsh-notifications-<版本>.tgz
 ```
 
 `artifacts/` 里的 tarball 可以直接装进 DSH 试用：插件管理器里选「添加插件」，装这个文件。
@@ -42,7 +42,8 @@ git push origin main --follow-tags
 
 ## npm 那边要先配的两件事
 
-- **包名归属**：`dsh-notifications` 这个不带 scope 的名字在 npm 上属于谁就是谁。换人维护要先转所有权。
+- **包名归属**：`@he0119/dsh-notifications` 挂在 npm 账号 `he0119` 的 scope 下，发布者要属于该 scope；
+  换人维护要先转到新的 scope，旧 scoped 名字不跟着包走。
 - **可信发布**：在 npm 包的 Settings → Trusted publishing 里登记 GitHub 仓库与工作流文件名
   `publish.yml`。没登记时工作流会在 `npm publish` 那一步被拒（`E404` 或 `ENEEDAUTH`），
   不会误发。

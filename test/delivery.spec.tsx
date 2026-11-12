@@ -13,7 +13,7 @@ import Include from '@deepseek-ai/cordis-plugin-include'
 import { Context as NativeContext, Service } from '@deepseek-ai/cordis'
 import { profileComposition } from './profile-composition.ts'
 import { Config, type NotificationsConfig as LiveNotificationsConfig } from '../src/config.ts'
-import { PLUGIN_NAME } from '../src/constants.ts'
+import { PACKAGE_NAME, PLUGIN_ROW_ID } from '../src/constants.ts'
 import * as nativePrimitives from '@deepseek-ai/dsh-client-ui-primitives'
 import { onTestFinished } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -188,7 +188,7 @@ it('registers the plugin-page config card and writes native paths only against t
     await owner.await()
     expect(register).toHaveBeenCalledOnce()
     expect(register.mock.calls[0]![0].name).toBe('plugins.bundle.config')
-    expect(register.mock.calls[0]![0].key).toBe(PLUGIN_NAME)
+    expect(register.mock.calls[0]![0].key).toBe(PACKAGE_NAME)
     expect(register.mock.calls[0]![0].locale).toBe('dshNotifications')
     expect(await face!.saveSettings(preferences, 7)).toBe(true)
     expect(mutate).toHaveBeenCalledWith([
@@ -324,11 +324,11 @@ it('persists notification volume through the published ConfigForm and Host Confi
   onTestFinished(async () => { await browser.fiber.dispose(); await host.fiber.dispose(); await rm(home, { recursive: true, force: true }) })
   const document = join(home, 'cordis.yml')
   const legacy = { desktop: true, completed: { enabled: true, sound: 'chime' }, interrupted: { enabled: true, sound: 'alert' }, question: { enabled: true, sound: 'soft' }, approval: { enabled: true, sound: 'double' } }
-  await writeFile(document, stringify([{ id: PLUGIN_NAME, name: 'notification-config', config: legacy }]))
+  await writeFile(document, stringify([{ id: PLUGIN_ROW_ID, name: 'notification-config', config: legacy }]))
   host.baseUrl = pathToFileURL(home).href + '/'
   await host.plugin(Loader); host.loader.builtins.include = Include
   let live: LiveNotificationsConfig | undefined
-  const owner = { name: PLUGIN_NAME, Config: Config, apply(_ctx: NativeContext, config: LiveNotificationsConfig) { live = config } }
+  const owner = { name: PLUGIN_ROW_ID, Config: Config, apply(_ctx: NativeContext, config: LiveNotificationsConfig) { live = config } }
   const internal: ModuleLoaderV2 = { version: 'v2', loadCache: new Map(), import: specifier => { if (specifier !== 'notification-config') throw new Error('Unexpected fixture module ' + specifier); return Promise.resolve(owner) }, register() { throw new Error('Unexpected register') }, getOrCreateModuleJob() { throw new Error('Unexpected module job') }, resolveSync() { throw new Error('Unexpected resolve') }, load() { throw new Error('Unexpected load') } }
   host.loader.internal = internal
   const patch = await profileComposition(host, home, document)
@@ -349,7 +349,7 @@ it('persists notification volume through the published ConfigForm and Host Confi
   new Transport(); new SettingsTransport()
   const settings = releasedSettingsClient<{ apply(ctx: NativeContext): void }>('@deepseek-ai/dsh-client-ui-settings')
   settings.apply(browser)
-  const form = browser.configForms.get<NotificationSettings>(PLUGIN_NAME)
+  const form = browser.configForms.get<NotificationSettings>(PLUGIN_ROW_ID)
   await vi.waitFor(() => expect(form.getSnapshot().status).toBe('ready'))
   let face: NotificationSettingsInjected | undefined
   browser.provide('slots', { inject: (_name: string, callback: () => void) => browser.effect(() => callback()), register: (definition: { inject: () => NotificationSettingsInjected }) => { face = definition.inject(); return () => {} } } as never)
@@ -361,7 +361,7 @@ it('persists notification volume through the published ConfigForm and Host Confi
   expect({ accepted, errors }).toEqual({ accepted: true, errors: [] })
   expect(live!.volume.get()).toBe(25)
   expect(form.getSnapshot().value?.volume).toBe(25)
-  expect(host.settings.describe().find(row => row.ns === PLUGIN_NAME)?.value).toMatchObject({ volume: 25 })
+  expect(host.settings.describe().find(row => row.ns === PLUGIN_ROW_ID)?.value).toMatchObject({ volume: 25 })
   expect(await readFile(patch, 'utf8')).toContain('volume: 25')
 })
 

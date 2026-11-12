@@ -11,7 +11,7 @@ Status: implemented
 
 ## Decision
 
-客户端把整张表单注册到插件页的 `plugins.bundle.config` 槽位，键是包名 `dsh-notifications`：官方插件
+客户端把整张表单注册到插件页的 `plugins.bundle.config` 槽位，键是包名 `@he0119/dsh-notifications`：官方插件
 管理器声明这个槽位，并按包名把贡献派给「这个包」的那一页，渲染在描述与它声明的行之间。列表视图
 （`view === 'summary'`）本包不画，那一行的一句话由插件页自己排版。
 

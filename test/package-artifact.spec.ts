@@ -32,9 +32,12 @@ const CLIENT_EXTERNALS = [
 ]
 
 it('loads the built Host entry with its declared exports', async () => {
-  const pkg = JSON.parse(await readFile(resolve('package.json'), 'utf8')) as { name: string }
+  // 宿主导出的 `name` 是插件行 id，不是包名：patch 里的 `id` 决定设置命名空间，`name` 才是模块名。
+  const patch = await readFile(resolve('cordis.patch.yml'), 'utf8')
+  const rowId = /-\s*id:\s*(\S+)/.exec(patch)?.[1]
   const entry = await import(pathToFileURL(resolve('lib/index.js')).href) as Record<string, unknown>
-  expect(entry.name).toBe(pkg.name)
+  expect(rowId).toBeDefined()
+  expect(entry.name).toBe(rowId)
   expect(typeof entry.apply).toBe('function')
   expect(typeof entry.Config).toBe('function')
   expect(entry.inject).toEqual(['sessions', 'agents', 'typert', 'typertGateway', 'remoteAccess'])

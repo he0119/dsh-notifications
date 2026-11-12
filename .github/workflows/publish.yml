@@ -81,11 +81,11 @@ jobs:
         run: |
           set -euo pipefail
           version="$(node -p 'require("./package.json").version')"
-          if npm view "dsh-notifications@${version}" version >/dev/null 2>&1; then
-            echo "dsh-notifications@${version} 已经在 npm 上了。"
+          if npm view "@he0119/dsh-notifications@${version}" version >/dev/null 2>&1; then
+            echo "@he0119/dsh-notifications@${version} 已经在 npm 上了。"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "即将发布 dsh-notifications@${version}。"
+            echo "即将发布 @he0119/dsh-notifications@${version}。"
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -114,7 +114,7 @@ jobs:
           if [ "${{ steps.check.outputs.skip }}" = "true" ]; then
             note="${tag} 在本次运行之前就已经在 npm 上了；以下是这个标签里包含的改动。"
           else
-            note="\`dsh-notifications@${version}\` 已发布到 npm（[npm](https://www.npmjs.com/package/dsh-notifications/v/${version})）。"
+            note="\`@he0119/dsh-notifications@${version}\` 已发布到 npm（[npm](https://www.npmjs.com/package/@he0119/dsh-notifications/v/${version})）。"
           fi
 
           # 以发布提交的父提交为基准找上一个标签，版本号提交本身就不会出现在自己的变更列表里。
