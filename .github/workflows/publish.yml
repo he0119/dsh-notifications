@@ -1,0 +1,126 @@
+name: Publish
+
+# 推一个 v* 标签（例如 v0.1.0）就发布到 npm，成功后建 GitHub Release。步骤与前置条件见
+# docs/releasing.md。
+#
+# 没有 workflow_dispatch：发布只能由标签触发。手动触发会在默认分支上跑，等于凭空指定一个版本发出去，
+# 正是「标签是唯一版本来源」要防的事。要发版就打标签。
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  # 发布前先跑一遍完整检查：标签打错 commit 时挡在 npm 之外。
+  check:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      # contents: write 是给最后那步建 Release 的；npm 那两步不需要它。
+      contents: write
+      # 可信发布：npm 用 OIDC 换一次性的短期凭据，不需要在仓库里存 token。
+      id-token: write
+    steps:
+      # fetch-depth: 0 —— 下面的落点校验要判断标签是不是 origin/main 的祖先，浅克隆没有这段历史。
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # 安装依赖用 pnpm（版本取自 package.json 的 packageManager），发布那一步仍然用 npm 自己的 CLI。
+      - uses: pnpm/action-setup@v4
+
+      # 发布固定用 Node 24：它在本包 engines 的支持范围里，并自带满足可信发布要求（>= 11.5.1）的 npm 11。
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.11.0
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: 校验标签与 package.json
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          version="${tag#v}"
+
+          # 标签必须能解析成 x.y.z（可带预发布后缀）。package.json 由发布提交写好版本号，这里只核对、
+          # 不改写：对齐会让 workflow 去「修正」一个本该让人看见的不一致。
+          node -e 'if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(process.argv[1])) { console.error("无效版本号: " + process.argv[1]); process.exit(1) }' "$version"
+
+          file_version="$(node -p 'require("./package.json").version')"
+          if [ "$file_version" != "$version" ]; then
+            echo "::error::标签是 $tag，但这个提交的 package.json 是 $file_version。标签落在了一个不是发布提交的 commit 上。"
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/main; then
+            echo "::error::标签 ${tag} 指向的提交不在 main 上。"
+            exit 1
+          fi
+          echo "标签与 package.json 一致，且落在 main 上：$version"
+
+      - run: pnpm install --frozen-lockfile
+
+      # lib/ 不进 git，靠 npm publish 的 prepublishOnly 现场编译；check job 装的那份依赖不会跨 job
+      # 带过来，所以这里自己装一次、自己构建一次。
+      - run: pnpm run build
+
+      # 包内容自检与 npm publish 之间只差最后那一下 PUT：这里红灯就是发布红灯。
+      - run: pnpm run check:package
+
+      - name: 判断该版本是否已经发布
+        id: check
+        run: |
+          set -euo pipefail
+          version="$(node -p 'require("./package.json").version')"
+          if npm view "dsh-notifications@${version}" version >/dev/null 2>&1; then
+            echo "dsh-notifications@${version} 已经在 npm 上了。"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "即将发布 dsh-notifications@${version}。"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 这里的 npm 不带 --provenance：可信发布已经由 npm 用这次 OIDC 身份签名来源。换成长期 token
+      # 发布（仓库里存 NPM_TOKEN）时要显式加 --provenance，并先给 package.json 补上 repository。
+      - name: 发布到 npm
+        if: steps.check.outputs.skip != 'true'
+        run: npm publish
+
+      - name: 该版本已存在，跳过发布
+        if: steps.check.outputs.skip == 'true'
+        run: echo "无需发布，视为成功。"
+
+      # 发布确认之后才建 Release，所以条目里的版本一定已经在 npm 上，顺序不会倒过来。
+      - name: 创建 GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          version="$(node -p 'require("./package.json").version')"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "${tag} 的 Release 已经存在。"
+            exit 0
+          fi
+          if [ "${{ steps.check.outputs.skip }}" = "true" ]; then
+            note="${tag} 在本次运行之前就已经在 npm 上了；以下是这个标签里包含的改动。"
+          else
+            note="\`dsh-notifications@${version}\` 已发布到 npm（[npm](https://www.npmjs.com/package/dsh-notifications/v/${version})）。"
+          fi
+
+          # 以发布提交的父提交为基准找上一个标签，版本号提交本身就不会出现在自己的变更列表里。
+          args=(--title "$tag" --verify-tag --latest --generate-notes --notes "$note")
+          prev_tag="$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null || true)"
+          if [ -n "$prev_tag" ]; then
+            args+=(--notes-start-tag "$prev_tag")
+          fi
+          gh release create "$tag" "${args[@]}"
