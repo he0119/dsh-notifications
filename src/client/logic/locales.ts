@@ -1,6 +1,5 @@
 /** Notification copy follows the application locale. */
 export const zh = {
-  nav: '通知',
   testSubmitted: '已向系统提交通知，请在通知中心确认；点击可返回对应会话。', testClosed: '系统已关闭本次测试通知。', testClicked: '已收到通知点击，正在打开对应会话。',
   hostUpdateRequired: '通知组件尚未更新完成，请在当前任务结束后重新打开 DSH，再修改这些设置。',
   title: '通知与提示音', help: '为不同事件选择提示音与弹窗方式，点击通知返回对应会话。切换到其它浏览器标签页也算失焦。',
@@ -21,7 +20,6 @@ export const zh = {
   unavailable: '暂时无法读取通知设置。', readOnly: '当前连接只能查看通知设置。', save: '保存更改', saving: '保存中…', discard: '放弃草稿', saveFailed: '保存失败，草稿已保留。', conflict: '设置已在别处更新，请放弃草稿后读取最新值。',
 }
 export const en: Record<keyof typeof zh, string> = {
-  nav: 'Notifications',
   testSubmitted: 'Notification submitted to the system. Check the notification center and click to open its conversation.', testClosed: 'The system closed this test notification.', testClicked: 'Notification click received. Opening its conversation.',
   hostUpdateRequired: 'The notification component is still updating. Reopen DSH after current tasks finish to edit these settings.',
   title: 'Notifications and sounds', help: 'Choose sounds and popup behavior for each event. Click a notification to open its conversation. Switching to another browser tab also counts as losing focus.',

@@ -23,7 +23,7 @@ import { createCustomSoundStore } from '../src/client/logic/custom-sounds.ts'
 import { Context } from '@deepseek-ai/cordis'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { NotificationSettingsInjected } from '../src/client/logic/slots.ts'
-import { installSettingsPage, NotificationsSettings, type NotificationSettingsProps } from '../src/client/components/NotificationsSettings.tsx'
+import { installNotificationsCard, NotificationsSettings, type NotificationSettingsProps } from '../src/client/components/NotificationsSettings.tsx'
 import { en } from '../src/client/logic/locales.ts'
 import type { ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { createNotificationDelivery } from '../src/client/logic/delivery.ts'
@@ -172,24 +172,23 @@ it('shows accepted push preferences and preview even when the remote form has no
   expect(controls.saveSettings).not.toHaveBeenCalled()
 })
 
-it('registers one settings section and writes native paths only against the accepted revision', async () => {
+it('registers the plugin-page config card and writes native paths only against the accepted revision', async () => {
   const ctx = new Context()
   let face: NotificationSettingsInjected | undefined
   const removed = vi.fn()
-  const register = vi.fn((definition: { name: string; id: string; order: number; locale: string; inject: () => NotificationSettingsInjected }) => { face = definition.inject(); return removed })
-  // The slot registry ties `inject` callbacks to their caller's Cordis scope, so unloading the owner withdraws the section.
+  const register = vi.fn((definition: { name: string; key: string; locale: string; inject: () => NotificationSettingsInjected }) => { face = definition.inject(); return removed })
+  // The slot registry ties `inject` callbacks to their caller's Cordis scope, so unloading the owner withdraws the card.
   let plugin: Context | undefined
   ctx.provide('slots', { inject: (_name: string, callback: () => void) => (plugin ?? ctx).effect(() => callback()), register } as never)
   const accepted = createSnapshotStore<ConfigFormSnapshot<NotificationSettings>>({ status: 'ready', writable: true, revision: 7, value: preferences })
   const mutate = vi.fn(async () => true)
   const client = { state: createSnapshotStore({ supported: true, secure: true, permission: 'default' as const, audio: 'unknown' as const, failed: false }), preferences: createSnapshotStore<NotificationSettings | undefined>(preferences), refresh: vi.fn(), requestPermission: vi.fn(async () => {}), preview: vi.fn(async () => true), test: vi.fn(async () => {}), importCustomSound: vi.fn(async () => true), removeCustomSound: vi.fn(async () => true) }
-  const owner = ctx.plugin({ name: 'notification-editor-test', apply(scope: Context) { plugin = scope; installSettingsPage(scope, { form: { ...accepted, mutate }, client }) } })
+  const owner = ctx.plugin({ name: 'notification-editor-test', apply(scope: Context) { plugin = scope; installNotificationsCard(scope, { form: { ...accepted, mutate }, client }) } })
   try {
     await owner.await()
     expect(register).toHaveBeenCalledOnce()
-    expect(register.mock.calls[0]![0].name).toBe('settings.section')
-    expect(register.mock.calls[0]![0].id).toBe(PLUGIN_NAME)
-    expect(register.mock.calls[0]![0].order).toBe(25)
+    expect(register.mock.calls[0]![0].name).toBe('plugins.bundle.config')
+    expect(register.mock.calls[0]![0].key).toBe(PLUGIN_NAME)
     expect(register.mock.calls[0]![0].locale).toBe('dshNotifications')
     expect(await face!.saveSettings(preferences, 7)).toBe(true)
     expect(mutate).toHaveBeenCalledWith([
@@ -356,7 +355,7 @@ it('persists notification volume through the published ConfigForm and Host Confi
   browser.provide('slots', { inject: (_name: string, callback: () => void) => browser.effect(() => callback()), register: (definition: { inject: () => NotificationSettingsInjected }) => { face = definition.inject(); return () => {} } } as never)
   const client = createNotificationDelivery(() => preferences, () => {}, copy)
   onTestFinished(() => client.dispose())
-  installSettingsPage(browser, { form, client })
+  installNotificationsCard(browser, { form, client })
   const revision = form.getSnapshot().revision
   const accepted = await face!.saveSettings({ ...preferences, popupMode: 'unfocused', soundEnabled: true, volume: 25 }, revision)
   expect({ accepted, errors }).toEqual({ accepted: true, errors: [] })

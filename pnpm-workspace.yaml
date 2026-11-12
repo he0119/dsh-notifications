@@ -96,6 +96,7 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-util-workspace-path@0.2.2-rc.2'
   - '@deepseek-ai/dsh-working-directory@0.2.2-rc.2'
   - '@deepseek-ai/dsh-workspace@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-ui-plugin-manager@0.2.2-rc.2'
 
 # pnpm 10+ 默认拦住自带安装/构建脚本的依赖，命中时连 `pnpm run` 的依赖检查都会失败。本仓库的依赖里
 # 只有 koffi 带构建脚本：它是 `@deepseek-ai/dsh-fs-local` 的原生绑定，随测试用的 DSH 开发依赖带进来，

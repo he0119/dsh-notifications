@@ -10,7 +10,7 @@ Requires DSH **^0.2.0-rc.1**, which covers every 0.2.x release and prerelease. D
 
 1. Open the DSH plugin manager and choose Add plugin.
 2. Enter the package name `dsh-notifications`, install, and restart when asked.
-3. Open **Settings → Notifications** to adjust the options.
+3. Open **Plugins** in the sidebar, pick `dsh-notifications`, and adjust the options in its card.
 
 For local development you can install the checkout directory, or run `pnpm run pack:release` and install the tarball from `artifacts/`.
 

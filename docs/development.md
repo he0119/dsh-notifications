@@ -79,10 +79,10 @@ pnpm run pack:release # 构建并打包到 artifacts/
 | `src/web.ts` | 宿主把 Service Worker 挂在 `/dsh-notifications/sw.js` |
 | `src/runtime/index.ts` | `@Remote` 方法：`events`、`activateDesktop`、`showDesktop`、`closeDesktop`、`acknowledgeDesktop`、`desktopEvents` |
 | `src/runtime/types.ts` | 宿主与浏览器之间传的数据（不含消息历史，也不含错误详情） |
-| `src/client/index.ts` | 浏览器入口（薄）：装样式、挂载本包的接口、注册设置页 |
+| `src/client/index.ts` | 浏览器入口（薄）：装样式、挂载本包的接口、注册插件页里那张配置卡 |
 | `src/client/notifications.ts` | 浏览器端的通知本体：订阅事件流，按四类偏好决定弹窗与提示音 |
 | `src/client/logic/` | 不碰 React 的逻辑：投递、声音、自定义音频存储、文案与字典、偏好归一、桌面通道、Service Worker 客户端 |
-| `src/client/components/` | 设置页 `NotificationsSettings.tsx` 与两份 CSS Modules |
+| `src/client/components/` | 插件页里的配置卡 `NotificationsSettings.tsx`（槽位 `plugins.bundle.config`，按包名作键）与两份 CSS Modules |
 | `test/` | 通知行为与打包契约的测试，一条行为一个文件 |
 
 `src/runtime/generated/` 是生成物（见上一节），不要手改。`src/windows/` 是唯一按操作系统分的目录，

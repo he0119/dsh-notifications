@@ -54,8 +54,8 @@ pnpm run typecheck && pnpm run build && pnpm test && pnpm run check:package
 - `test/notes.spec.ts` 只核**声明**：`.agents/notes/` 下的路径形状、头部三行、`Status:` 与所在目录
   是否一致、`## Problem` 是不是第一个二级标题、必备章节在不在、相对链接能不能解析。改笔记格式就同一次
   改动里改它。
-- 界面与样式的改动要**在真实 dev GUI 里看**，深浅两套主题各看一遍（本包的设置页注册在
-  `settings.section`，宿主由 `dsh web` 提供）。
+- 界面与样式的改动要**在真实 dev GUI 里看**，深浅两套主题各看一遍（本包的配置卡注册在插件页的
+  `plugins.bundle.config` 槽位，按包名作键；宿主由 `dsh web` 提供）。
 - 验收需要临时夹具（假会话、假音频等）时，用完立刻删干净，并在报告里写明造过什么、清掉了没有。
 
 ## 硬约束
@@ -85,6 +85,6 @@ pnpm run typecheck && pnpm run build && pnpm test && pnpm run check:package
 - **测试里不要装回渲染栈**：官方控件库与快照存储由 `test/stubs/` 的替身代替（`vitest.config.ts` 的
   `resolve.alias`）。替身只保证语义（可访问名字、禁用、勾选/点击），要加新断言先看替身够不够，别为了
   一次渲染把 shiki / katex / micromark 那一套拉回开发依赖。
-- **文案两处**：插件行的标题与描述在 `locale/zh.json` / `locale/en.json`（两份键对齐）；设置页文案在
+- **文案两处**：插件行的标题与描述在 `locale/zh.json` / `locale/en.json`（两份键对齐）；配置卡文案在
   `src/client/logic/locales.ts`（`zh` 是基准，`en` 的类型是 `Record<keyof typeof zh, string>`，
   少一个键就编译不过）。

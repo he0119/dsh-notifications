@@ -4,7 +4,10 @@ import { useRef, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import { Button, Checkbox, SettingsForm } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
+import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+// 这一行只为类型：插件页的插槽名与 props 由官方插件管理器声明。
+import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { NotificationKind, NotificationSettings, NotificationSound } from '../../runtime/types.ts'
@@ -16,11 +19,13 @@ import styles from './SettingsFrame.module.css'
 import notificationStyles from './NotificationsSettings.module.css'
 
 export interface NotificationForm extends ObservableSnapshot<ConfigFormSnapshot<NotificationSettings>> { mutate(ops: readonly SettingsPathOpView[], revision?: number): Promise<boolean> }
-export type NotificationSettingsProps = InjectFace<NotificationSettingsInjected> & PropsLocale<typeof LOCALE_NS>
+export type NotificationSettingsProps = PropsRuntime<'plugins.bundle.config'> & InjectFace<NotificationSettingsInjected> & PropsLocale<typeof LOCALE_NS>
 const kinds: readonly NotificationKind[] = ['completed', 'interrupted', 'question', 'approval']
 const sounds: readonly NotificationSound[] = ['none', 'soft', 'double', 'chime', 'alert', 'custom']
 /** Render independent category preferences with one explicit native Save operation. */
 export function NotificationsSettings(props: NotificationSettingsProps) {
+  // 列表里那一行只画一句摘要，由插件页自己排版；这张表单只在整页时出现。
+  if (props.view === 'summary') return null
   const { t } = props
   const snapshot = props.useNotificationSettings(value => value)
   const capability = props.useNotificationCapabilities(value => value)
@@ -88,10 +93,10 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
     </SettingsForm></div>
   </section>
 }
-/** Settings navigation slot for this page; after the built-in pages. */
-export const SETTINGS_SECTION_ORDER = 25
-/** Register the standalone settings page and the plugin manager card that shows the same editor. */
-export function installSettingsPage(ctx: Context, { form, client }: { form: NotificationForm; client: NotificationClient }): void {
+/** 插件页里这一格配置的槽位：官方插件管理器声明它，按**包名**作键。 */
+export const PLUGIN_CONFIG_SLOT = 'plugins.bundle.config'
+/** 把通知设置注册成插件页里的配置卡（不再单独占设置页的一页）。 */
+export function installNotificationsCard(ctx: Context, { form, client }: { form: NotificationForm; client: NotificationClient }): void {
   const injected: NotificationSettingsInjected = {
     hooks: { notificationSettings: form, notificationCapabilities: client.state, notificationPreferences: client.preferences },
     saveSettings: (value, revision) => revision !== undefined && form.getSnapshot().revision === revision && typeof form.getSnapshot().value?.volume === 'number' ? form.mutate([
@@ -104,9 +109,8 @@ export function installSettingsPage(ctx: Context, { form, client }: { form: Noti
     importCustomSound: (kind, file) => client.importCustomSound(kind, file), removeCustomSound: kind => client.removeCustomSound(kind),
   }
   ctx.effect(() => form.subscribe(() => client.refresh()))
-  // The section slot is declared by the settings shell at run time, so inject waits for it.
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section', id: PLUGIN_NAME, order: SETTINGS_SECTION_ORDER,
-    label: () => ctx.locale.bind(LOCALE_NS)('nav'), locale: LOCALE_NS, inject: () => injected,
+  // 这个槽位由插件页在运行时声明，所以 inject 要等它出现再注册。
+  ctx.slots.inject(PLUGIN_CONFIG_SLOT, () => ctx.slots.register({
+    name: PLUGIN_CONFIG_SLOT, key: PLUGIN_NAME, locale: LOCALE_NS, inject: () => injected,
   }, NotificationsSettings))
 }

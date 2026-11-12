@@ -10,7 +10,7 @@
 
 1. 打开 DSH 的插件管理器，选「添加插件」。
 2. 填包名 `dsh-notifications`，安装，按提示重启。
-3. 到 **设置 → 通知** 调整选项。
+3. 打开左侧「插件」页，找到 `dsh-notifications`，在它那一格里调整选项。
 
 本地开发时可以直接装目录：装当前仓库的目录路径，或先 `pnpm run pack:release` 再用 `artifacts/` 里的 tarball。
 
