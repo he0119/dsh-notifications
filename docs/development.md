@@ -1,6 +1,7 @@
 # 通知插件：开发与发布
 
-这份文档写给要改这个插件的人。想装来用，看 [README](../README.md)。
+这份文档写给要改这个插件的人。想装来用，看 [README](../README.md)；提交前的验证清单、提交信息
+口径与改一次就会静默坏掉的硬约束在根 [AGENTS.md](../AGENTS.md)。
 
 ## 环境
 
@@ -83,6 +84,6 @@ pnpm run pack:release # 构建并打包到 artifacts/
 
 ## 发布
 
-本地打包试用用 `pnpm run pack:release`，产物在 `artifacts/`。正式发布改 `package.json` 的 `version`，
-在发布提交上打 `v<版本>` 标签推上去；工作流先跑一遍完整检查，再发布到 npm 并建 Release。
+本地打包试用、改版本号打标签、推标签之后工作流做什么、npm 那边要先配什么，都在
+[releasing.md](releasing.md)。
 
