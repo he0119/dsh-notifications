@@ -82,6 +82,9 @@ pnpm run typecheck && pnpm run build && pnpm test && pnpm run check:package
   改包结构要同步 `scripts/check-package.mjs` 的必需文件清单。
 - **配置只走 `Config`**：schema 必须从 `src/index.ts` 导出为 `Config`，插件管理器靠它生成表单；
   这些字段都是 `volatile()`，改完立即生效，别在别处再存一份。
+- **测试里不要装回渲染栈**：官方控件库与快照存储由 `test/stubs/` 的替身代替（`vitest.config.ts` 的
+  `resolve.alias`）。替身只保证语义（可访问名字、禁用、勾选/点击），要加新断言先看替身够不够，别为了
+  一次渲染把 shiki / katex / micromark 那一套拉回开发依赖。
 - **文案两处**：插件行的标题与描述在 `locale/zh.json` / `locale/en.json`（两份键对齐）；设置页文案在
   `src/client/logic/locales.ts`（`zh` 是基准，`en` 的类型是 `Record<keyof typeof zh, string>`，
   少一个键就编译不过）。

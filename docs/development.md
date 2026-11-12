@@ -24,17 +24,22 @@ pnpm run check:package # 用 npm 自己的打包规则核对发布内容（要�
 pnpm run pack:release # 构建并打包到 artifacts/
 ```
 
-### 为什么 devDependencies 里有一堆看起来无关的包
+### 测试里的两个替身，以及为什么还要留 zustand / immer
 
-`shiki`、`katex`、`micromark-*`、`simple-icons`、`clsx`、`zustand`、`immer` 这些在本包的源码里一个都
-没出现，但它们不能删：官方的 `@deepseek-ai/dsh-client-ui-primitives` 与 `@deepseek-ai/dsh-client-store`
-产物会直接 `import` 它们，却没有在自己的 `package.json` 里声明（宿主安装时另有来源）。本包的测试把
-这两个包内联进 jsdom 渲染设置页，所以这些模块必须在本地解析得到——删掉任意一组，`test/client.spec.ts`
-与 `test/delivery.spec.tsx` 立刻报 `Failed to resolve import`。
+`test/stubs/` 里放着两个官方客户端包的替身，`vitest.config.ts` 用 `resolve.alias` 换上去：
 
-同理，`dsh-app-boot`、`dsh-config-editor`、`dsh-settings`、`dsh-llm`、`cordis-plugin-include`、
-`dsh-util-workspace-path` 都写进了 devDependencies：它们由测试直接 `import`（或由被内联的官方包
-`import`），不声明就只靠 hoisted 布局碰巧解析得到。
+- `ui-primitives.tsx`：官方控件库的产物会顺带 import 一整套渲染依赖（shiki、katex、micromark、
+  simple-icons、clsx、anser、diff……），而它们没在该包的 `package.json` 里声明。本包的测试只用其中
+  四个入口（按钮、勾选框、设置表单外框、关掉最上层弹窗），替身按**语义**实现：可访问名字、禁用状态、
+  勾选与点击照真实控件走，外观不参与断言。于是那二十来个渲染依赖不必进本仓库的开发依赖。
+- `client-store.ts`：真实实现基于 zustand + immer；本包只用到「不可变快照 + 订阅」，替身是二十来行。
+
+`zustand` 与 `immer` 仍然留在 devDependencies：`test/client.spec.ts` 里有一组用例会把**真实的**
+原生客户端包（`dsh-client-ui-session`、`dsh-client-ui-workspace`、`dsh-api-session-controller`）跑起来，
+它们各自 require 真实的 `dsh-client-store`，alias 管不到那条路径。
+
+`dsh-app-boot`、`dsh-config-editor`、`dsh-settings`、`dsh-llm`、`cordis-plugin-include` 也是同理：
+测试直接 import 它们（挂一个最小的宿主 profile、驱动一次真实的 agent 回合），所以要显式声明。
 
 ### 依赖安装的三条设置
 
