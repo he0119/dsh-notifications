@@ -1,0 +1,104 @@
+# 本仓库只有一个包，这里没有 `packages:` —— 这个文件只承载 pnpm 的设置（pnpm 10+ 起，pnpm 自己的
+# 设置以 pnpm-workspace.yaml 为准）。
+#
+# nodeLinker: hoisted
+#   pnpm 默认的 isolated 布局靠 junction/symlink 组织依赖树；在 Windows 沙箱下实测这种布局会让
+#   `@deepseek-ai/cordis` 的运行时依赖解析失败（Cannot find package '@deepseek-ai/cosmokit'）。
+#   hoisted 生成扁平的真实目录，不依赖任何链接。
+#
+#   ⚠️ 本机实测：pnpm 会忽略这个设置，布局仍是 isolated。因此在本机安装依赖请用
+#   `npm install --no-package-lock`（见 docs/development.md 的「本机安装」）；这条设置留给能识别它
+#   的 pnpm，CI 就是这样。
+nodeLinker: hoisted
+
+# 供应链策略的放行名单。
+#
+# pnpm 11 默认拦住发布不满 24 小时的版本：连 `--frozen-lockfile` 也会逐条验锁文件，命中就
+# ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION（CI 上就是这条）。本包跟着 DSH 的 0.2.2-rc.2 这一代走，
+# 而它今天才发布，所以这一代的每条都按版本精确放行。等过了 24 小时窗口，整段可以删掉。
+minimumReleaseAgeExclude:
+  - '@deepseek-ai/dsh-agent@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-agent-default-model@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-agent-loop@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-agent-loop-testkit@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-agent-preset-registry@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-api-gateway@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-api-remote-access@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-api-remotes@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-api-session-controller@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-app-boot@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-atomic-write@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-attachment@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-brand@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-chunked-list@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-connection@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-file-upload@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-locale@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-store@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-ui-primitives@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-ui-renderer@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-ui-session@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-ui-settings@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-ui-slots@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-client-ui-workspace@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-commands@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-compaction@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-compaction-image-offload@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-config-editor@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-credentials@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-deque@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-error@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-file-reference@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-fs@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-fs-local@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-fs-patch@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-home-paths@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-host-webserver@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-launch-environment@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-llm@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-native-command@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-official-bundles@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-package-manifest@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-ptc-runtime@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-sandbox@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-sandbox-policy@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-scope@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session-format@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session-format-catalog@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session-format-v0-to-v1@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session-format-v1-to-v2@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session-format-v2-to-v3@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session-format-v3-to-v4@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session-persistence@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session-projection@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session-query@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-session-title@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-settings@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-skill@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-storage@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-storage-domain@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-subagent@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-system-prompt@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-timeout@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-tool-executor-native@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-tool-executor-ptc@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-tools@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-tool-todo@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-typert-generator@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-typert-protocol@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-typert-registry@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-user-approval@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-util-code-language@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-util-crypto@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-util-time@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-util-values@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-util-workspace-path@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-working-directory@0.2.2-rc.2'
+  - '@deepseek-ai/dsh-workspace@0.2.2-rc.2'
+
+# pnpm 10+ 默认拦住自带安装/构建脚本的依赖，命中时连 `pnpm run` 的依赖检查都会失败。本仓库的依赖里
+# 只有 koffi 带构建脚本：它是 `@deepseek-ai/dsh-fs-local` 的原生绑定，随测试用的 DSH 开发依赖带进来，
+# 本包的源码与测试都不 import 它。放行它的构建，安装过程才不会在 CI 上停在这一条。
+allowBuilds:
+  koffi: true

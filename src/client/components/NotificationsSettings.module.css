@@ -1,0 +1,406 @@
+/**
+ * Compact rhythm for the background-notification settings section.
+ *
+ * Scope: every selector is rooted at .root — the [data-dsh-notifications]
+ * section — so the shared ToolsSettings page, the native settings dialog and
+ * other plugin forms keep their own metrics. Only density, alignment and
+ * wrapping change here; type, colour, radius and hit areas stay on the DSH
+ * primitives and their --dsw-* tokens (no new fonts, images or motion).
+ *
+ * Source markers this sheet expects (task-16):
+ *   .root / data-dsh-notifications                     section
+ *   [data-notification-global]                             permission + audio + desktop + volume
+ *   [data-notification-capabilities] > p                   permission / audio / failure status
+ *   [data-notification-permission-actions]                 allow + test
+ *   [data-notification-preferences]                        desktop checkbox + volume
+ *   [data-notification-volume]                             "volume · <output>N%" + range + hint
+ *   [data-notification-categories] > [data-notification-kind]  one row per category
+ *   [data-notification-sound-controls]                     select + preview
+ *   [data-notification-custom] > [data-notification-file]  custom audio, second line of a row
+ *   [data-notification-actions]                            discard (native Save stays the form footer)
+ */
+
+.root {
+  /* Anonymous inline-size container: the narrow query below measures this section,
+     not the viewport, so a narrow desktop panel and a phone fold the same way. */
+  container-type: inline-size;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  color: var(--dsw-alias-label-primary, inherit);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.root,
+.root *,
+.root *::before,
+.root *::after {
+  box-sizing: border-box;
+}
+
+/* Header: a title and one sentence of explanation, nothing else. */
+.root > header {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.root > header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.2px;
+}
+
+.root > header p {
+  margin: 0;
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Global zone: capability strip, then desktop + volume in one aligned pair. */
+.root [data-notification-global] {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.root [data-notification-capabilities] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  min-width: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(128, 128, 128, 0.28));
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.root [data-notification-capabilities] > p {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Separate short status sentences without spending a line per sentence. */
+.root [data-notification-capabilities] > p + p::before {
+  content: '·';
+  margin-right: 6px;
+  color: var(--dsw-alias-label-tertiary, inherit);
+}
+
+.root [data-notification-capabilities] > p[role='alert'] {
+  color: var(--dsw-alias-state-error-primary, inherit);
+}
+
+.root [data-notification-capabilities] > [data-notification-permission-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* Preferences: pop-up delivery on its own line, then sound toggle + volume.
+   flex-wrap keeps this correct whether sound is wrapped in [data-notification-sound]
+   or listed as flat siblings next to the volume control. */
+.root [data-notification-preferences] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  min-width: 0;
+}
+
+/* Pop-up delivery mode (never / background only / always). Sound never follows it. */
+.root :is([data-notification-popup], [data-notification-mode]) {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.root :is([data-notification-popup], [data-notification-mode]) > span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.root :is([data-notification-popup], [data-notification-mode]) > select {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Sound: independent toggle plus its own volume, side by side when they fit. */
+.root [data-notification-sound] {
+  flex: 1 1 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 18px;
+  min-width: 0;
+}
+
+/* Independent sound switch. The native checkbox keeps its own hit area. */
+.root [data-notification-sound-enabled] {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Flat structure: the volume label itself is the flexible item after the toggle. */
+.root [data-notification-preferences] > [data-notification-volume] {
+  flex: 1 1 240px;
+}
+
+.root [data-notification-volume] {
+  display: grid;
+  grid-template-columns: max-content minmax(64px, 1fr);
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.root [data-notification-volume] > span:first-child {
+  white-space: nowrap;
+}
+
+.root [data-notification-volume] output {
+  color: var(--dsw-alias-label-primary, inherit);
+  font-variant-numeric: tabular-nums;
+}
+
+.root [data-notification-volume] > input[type='range'] {
+  width: 100%;
+  min-width: 0;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--dsw-alias-brand-primary, currentColor);
+  cursor: pointer;
+}
+
+.root [data-notification-volume] > input[type='range']:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.root [data-notification-volume] > input[type='range']:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary, currentColor));
+  outline-offset: 2px;
+}
+
+.root [data-notification-volume] > span:last-child {
+  grid-column: 1 / -1;
+  color: var(--dsw-alias-label-tertiary, inherit);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* Category rows: enabled label on the left, sound + preview on the right. */
+.root [data-notification-categories] {
+  display: grid;
+  min-width: 0;
+  padding-top: 2px;
+  border-top: 1px solid var(--dsw-alias-border-l1, rgba(128, 128, 128, 0.28));
+}
+
+.root [data-notification-categories] > * {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 0;
+  padding: 6px 0;
+}
+
+.root [data-notification-categories] > * + * {
+  border-top: 1px solid var(--dsw-alias-border-l1, rgba(128, 128, 128, 0.28));
+}
+
+.root [data-notification-sound-controls] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.root [data-notification-sound-controls] > select,
+.root :is([data-notification-popup], [data-notification-mode]) > select {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 6px;
+  color: var(--dsw-alias-label-primary, inherit);
+  background-color: var(--dsw-alias-bg-layer-1, transparent);
+  border: 0.5px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.34));
+  border-radius: var(--dsw-radius-sm, 6px);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.root [data-notification-sound-controls] > select:hover:not(:disabled),
+.root :is([data-notification-popup], [data-notification-mode]) > select:hover:not(:disabled) {
+  border-color: var(--dsw-alias-border-l3, rgba(128, 128, 128, 0.44));
+}
+
+.root [data-notification-sound-controls] > select:disabled,
+.root :is([data-notification-popup], [data-notification-mode]) > select:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.root [data-notification-sound-controls] > select:focus-visible,
+.root :is([data-notification-popup], [data-notification-mode]) > select:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary, currentColor));
+  outline-offset: 1px;
+}
+
+.root [data-notification-sound-controls] > button {
+  flex: 0 0 auto;
+}
+
+/* Custom audio file: a quiet second line inside its category row. */
+.root [data-notification-kind] > [data-notification-custom] {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  padding: 2px 0 0 22px;
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.root [data-notification-custom] > [data-notification-file] {
+  min-width: 0;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.root [data-notification-custom] > button,
+.root [data-notification-custom] > label > button {
+  flex: 0 0 auto;
+}
+
+/* Import feedback gets its own line, so a long fallback never squeezes the file name. */
+.root [data-notification-custom] > [data-notification-custom-status] {
+  flex: 1 1 100%;
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.root [data-notification-custom] > input[type='file'] {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--dsw-alias-label-secondary, inherit);
+  font: inherit;
+  font-size: 12px;
+}
+
+/* Native form grid: categories span, then discard + native Save on one right edge. */
+.root [data-dsh-settings-form] {
+  min-width: 0;
+}
+
+.root [data-dsh-settings-form] > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 12px;
+  min-width: 0;
+}
+
+.root [data-dsh-settings-form] > div > [data-notification-categories],
+.root [data-dsh-settings-form] > div > p[role='alert'] {
+  grid-column: 1 / -1;
+}
+
+.root [data-dsh-settings-form] > div > :last-child {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.root [data-notification-actions] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+  min-width: 0;
+}
+
+/* Keep the two save-area actions on one native 32px baseline. */
+.root [data-notification-actions] > button,
+.root [data-dsh-settings-form] > div > :last-child > button {
+  height: 32px;
+  min-height: 32px;
+}
+
+.root [data-dsh-settings-form] > div > p[role='alert'] {
+  margin: 0;
+  color: var(--dsw-alias-state-error-primary, inherit);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Narrow panel: stack the capability actions, the preference pair and each row. */
+@container (max-width: 520px) {
+  .root [data-notification-capabilities] > [data-notification-permission-actions] {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+
+  /* Mobile: one control per line, in DOM order (mode, sound switch, volume). */
+  .root [data-notification-preferences] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .root [data-notification-sound] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .root [data-notification-categories] > * {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 8px 0;
+  }
+
+  .root [data-notification-sound-controls] {
+    justify-content: flex-start;
+  }
+
+  .root [data-notification-kind] > [data-notification-custom] {
+    padding-left: 0;
+  }
+}

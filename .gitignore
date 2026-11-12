@@ -1,0 +1,8 @@
+node_modules/
+lib/
+artifacts/
+*.tgz
+*.tsbuildinfo
+.typecheck/
+src/runtime/generated/
+src/runtime/.generate-*/

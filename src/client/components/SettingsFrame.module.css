@@ -1,0 +1,9 @@
+/* Save / discard layout for the notification settings page. Only the two
+   rules the section itself needs: the section body is styled by
+   NotificationsSettings.module.css. */
+.form { min-width:0; }
+.form > div { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:22px 8px; }
+.form > div > :not(:last-child):not(.formActions) { grid-column:1 / -1; }
+.form > div > :last-child { grid-column:2; margin:0; padding:0; border:0; align-self:center; display:flex; align-items:center; }
+.form > div > :last-child button,.formActions button { height:32px; min-height:32px; box-sizing:border-box; }
+.form > div > .formActions { grid-column:1; justify-self:end; align-self:center; display:flex; align-items:center; }

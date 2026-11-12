@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Notifications",
+    "description": "Play sounds and show system popups when a conversation finishes, stops with an error, asks a question, or waits for your approval, including while the DSH window is in the background. Click a notification to open its conversation. Enable it in Plugins, then choose each event's sound and popup mode in Settings → Notifications. System popups need the Windows desktop app, or a browser on an HTTPS page; a suspended browser tab may miss them, and there is no offline push."
+  }
+}
