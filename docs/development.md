@@ -24,6 +24,18 @@ pnpm run check:package # 用 npm 自己的打包规则核对发布内容（要�
 pnpm run pack:release # 构建并打包到 artifacts/
 ```
 
+### 为什么 devDependencies 里有一堆看起来无关的包
+
+`shiki`、`katex`、`micromark-*`、`simple-icons`、`clsx`、`zustand`、`immer` 这些在本包的源码里一个都
+没出现，但它们不能删：官方的 `@deepseek-ai/dsh-client-ui-primitives` 与 `@deepseek-ai/dsh-client-store`
+产物会直接 `import` 它们，却没有在自己的 `package.json` 里声明（宿主安装时另有来源）。本包的测试把
+这两个包内联进 jsdom 渲染设置页，所以这些模块必须在本地解析得到——删掉任意一组，`test/client.spec.ts`
+与 `test/delivery.spec.tsx` 立刻报 `Failed to resolve import`。
+
+同理，`dsh-app-boot`、`dsh-config-editor`、`dsh-settings`、`dsh-llm`、`cordis-plugin-include`、
+`dsh-util-workspace-path` 都写进了 devDependencies：它们由测试直接 `import`（或由被内联的官方包
+`import`），不声明就只靠 hoisted 布局碰巧解析得到。
+
 ### 依赖安装的三条设置
 
 `pnpm-workspace.yaml` 里那几项不是可选项，改错一处就会在本机或 CI 上装不上：
