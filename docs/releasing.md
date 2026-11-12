@@ -58,6 +58,10 @@ git push origin main --follow-tags
 
 ## 出错时
 
+- **刚发的版本查不到**：`npm publish` 成功时会打印 `Your package is being processed and may take a
+  few minutes to become available`。这期间 `npm view` 与 tarball 地址都是 404，属于等待而不是失败
+  （0.1.1 实测 285 秒后才可查）。别在这时重发。
+
 - **`版本已存在`**：说明这个版本号已经发过。要么换版本号重来，要么什么都不做（跳过发布视为成功）。
 - **`标签 ≠ package.json`**：标签打在了别的提交上。删标签重打到发布提交：
   `git tag -d v<版本> && git tag v<版本> <发布提交> && git push origin :refs/tags/v<版本> && git push origin v<版本>`。
