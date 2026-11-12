@@ -47,6 +47,10 @@ git push origin main --follow-tags
 - **可信发布**：在 npm 包的 Settings → Trusted publishing 里登记 GitHub 仓库与工作流文件名
   `publish.yml`。没登记时工作流会在 `npm publish` 那一步被拒（`E404` 或 `ENEEDAUTH`），
   不会误发。
+- **新包要先有一次手动发布**：设置页只在包已经存在于 npm 上之后才有，所以全新包名得先用
+  `npm publish` 发一次（需要在终端里输一次 OTP），再去配可信发布。配好之后，npm 要求这份配置在
+  **2 天内完成一次由 CI 发起的成功发布**才算生效，否则过期要删掉重配——所以配完紧接着打一个标签，
+  别等。手动发的那一次不算验证：工作流会在「判断该版本是否已经发布」那步跳过它。
 
 如果改用长期 token 发布（在仓库里存 `NPM_TOKEN`，工作流里配 `NODE_AUTH_TOKEN`），要同时改两处：
 `npm publish --provenance`，以及给 `package.json` 补上指向本仓库的 `repository` —— 来源证明要求
