@@ -4,8 +4,6 @@ English | [中文](README.md)
 
 Adds one thing to DeepSeek Harness (DSH): an alert when a conversation finishes, stops with an error, asks you a question, or waits for your approval. It works while the DSH window is in the background or you are on another browser tab.
 
-It is the notification component of [Cyaness Tools](https://git.hehome.xyz/hcy0317/dsh-Cyaness-tool), split out as a standalone plugin, so it can be installed without the rest of that bundle.
-
 Requires DSH **^0.2.0-rc.1**, which covers every 0.2.x release and prerelease. Development and tests run against **0.2.2-rc.2**.
 
 ## Install
@@ -47,6 +45,13 @@ Only root conversations are announced, including the ones you forked yourself. S
 ## Working on the plugin
 
 See [docs/development.md](docs/development.md).
+
+## Acknowledgements
+
+This package is the notification component of [Cyaness Tools](https://git.hehome.xyz/hcy0317/dsh-Cyaness-tool),
+split out into a standalone package: the host event source, the delivery chain and the Windows native
+notification all come from that project. Only the packaging is new, so people who do not want the rest of
+the bundle still get the alerts.
 
 ## License
 

@@ -4,8 +4,6 @@
 
 给 DeepSeek Harness（DSH）加一层提醒：任务完成、意外中止、需要你回答、等待你审批时，用声音和系统弹窗通知你。DSH 窗口在后台、或者你在别的浏览器标签页里，同样会提醒。
 
-这是从 [Cyaness Tools](https://git.hehome.xyz/hcy0317/dsh-Cyaness-tool) 里拆出来的独立插件，只做通知一件事，不装工具集也能单独用。
-
 要求 DSH **^0.2.0-rc.1**：0.2.x 的正式版与预发布版都算在内。开发与测试对照的是 **0.2.2-rc.2**。
 
 ## 安装
@@ -47,6 +45,11 @@
 ## 改这个插件
 
 见 [docs/development.md](docs/development.md)。
+
+## 致谢
+
+这个包从 [Cyaness Tools](https://git.hehome.xyz/hcy0317/dsh-Cyaness-tool) 的通知组件里拆出来：宿主事件源、
+投递链与 Windows 原生通知的实现都源自那个项目。这里只把它单独成包，让不装整套工具集的人也能拿到提醒。
 
 ## 许可证
 
