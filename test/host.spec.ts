@@ -1,7 +1,7 @@
 /** Notification delivery follows committed Native Session boundaries without reading history. */
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SessionId, type TurnEndReason } from '@deepseek-ai/dsh-session'
-import { expect, it, type TestContext } from 'vitest'
+import { expect, it, vi, type TestContext } from 'vitest'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { LlmAdapter, LlmError, createUserMessage, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
@@ -308,6 +308,121 @@ it('still announces a failure from a goal round or background wake', async t => 
   expect(frameOf(await next).events).toMatchObject([{ sessionId: goal.id, kind: 'interrupted', reason: 'RATE_LIMIT' }])
 })
 
+/** Append a user message with an arbitrary source object to a live session. */
+function messageTurn(session: ReturnType<Context['sessions']['create']>, turn: number, source: unknown): void {
+  session.append('turn/start', { turn })
+  session.append('user/message', { content: [{ type: 'text', text: 'message' }], source } as never, { surfaceOp: 'append' })
+}
+
+/** Context message kinds DSH injects into an already-open turn after its trigger. */
+const INJECTED_CONTEXTS = [
+  { kind: 'time-context', form: 'snapshot' },
+  { kind: 'tool-jobs', form: 'notice' },
+  { kind: 'ptc-mode' },
+  { kind: 'agent-instructions', form: 'instructions' },
+  { kind: 'skill-catalog', form: 'catalog' },
+  { kind: 'compact-checkpoint' },
+]
+
+it('does not let injected context turn a goal round into a user turn when goalRounds is off', async t => {
+  // 真实顺序：goal 消息先触发回合，随后每步注入 time-context / tool-jobs / ptc-mode 等上下文，
+  // 最后一轮 completed。这些注入消息不能把回合来源从 goal 覆盖成 user，否则绕过 goalRounds。
+  const { ctx, stream } = await fixture(t)
+  await stream.next()
+  const goal = ctx.sessions.create(SessionId('injected-context-goal'))
+  const user = ctx.sessions.create(SessionId('injected-context-user'))
+  const sentinel = ctx.sessions.create(SessionId('injected-context-sentinel'))
+  const next = stream.next()
+  messageTurn(goal, 1, { kind: 'goal', goalId: 'g1', revision: 1, round: 1 })
+  for (const source of INJECTED_CONTEXTS) {
+    goal.append('user/message', { content: [{ type: 'text', text: 'context' }], source } as never, { surfaceOp: 'append' })
+  }
+  goal.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  // 对照组：同样的注入上下文跟在真正的 user 消息后，仍要照常提醒。
+  messageTurn(user, 1, { kind: 'user' })
+  for (const source of INJECTED_CONTEXTS) {
+    user.append('user/message', { content: [{ type: 'text', text: 'context' }], source } as never, { surfaceOp: 'append' })
+  }
+  user.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  sentinel.append('turn/start', { turn: 1 })
+  sentinel.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([
+    { sessionId: user.id, kind: 'completed' },
+    { sessionId: sentinel.id, kind: 'completed' },
+  ])
+})
+
+it('announces a goal round when goalRounds is on even with injected context', async t => {
+  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: true, subagentWake: false, backgroundWake: false }))
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('injected-context-goal-on'))
+  const next = stream.next()
+  messageTurn(session, 1, { kind: 'goal', goalId: 'g2', revision: 1, round: 1 })
+  for (const source of INJECTED_CONTEXTS) {
+    session.append('user/message', { content: [{ type: 'text', text: 'context' }], source } as never, { surfaceOp: 'append' })
+  }
+  session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: session.id, kind: 'completed' }])
+})
+
+it('keeps a tool-jobs wake silent when backgroundWake is off', async t => {
+  // DSH 的 tool-jobs 在空闲 owner 上用 followup 投递完成通知，这会真正开启一个回合；
+  // 这条消息和「注入到进行中回合」的 tool-jobs 用同一个 source.kind，必须靠「是不是回合
+  // 第一条来源」区分：唤醒回合里它是唯一来源，应受 backgroundWake 控制。
+  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: false, subagentWake: false, backgroundWake: false }))
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('tool-jobs-wake-off'))
+  const sentinel = ctx.sessions.create(SessionId('tool-jobs-wake-sentinel'))
+  const next = stream.next()
+  messageTurn(session, 1, { kind: 'tool-jobs', form: 'notice', summary: 'job done' })
+  session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  sentinel.append('turn/start', { turn: 1 })
+  sentinel.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: sentinel.id, kind: 'completed' }])
+})
+
+it('announces a tool-jobs wake when backgroundWake is on', async t => {
+  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: false, subagentWake: false, backgroundWake: true }))
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('tool-jobs-wake-on'))
+  const next = stream.next()
+  messageTurn(session, 1, { kind: 'tool-jobs', form: 'notice', summary: 'job done' })
+  session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: session.id, kind: 'completed' }])
+})
+
+it('still ignores a tool-jobs notice injected into a goal round with goalRounds off', async t => {
+  // 同一个 tool-jobs kind 出现在 goal 回合中段时是注入上下文，不能把回合变成后台唤醒。
+  const { ctx, stream } = await fixture(t)
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('tool-jobs-injected-goal'))
+  const sentinel = ctx.sessions.create(SessionId('tool-jobs-injected-sentinel'))
+  const next = stream.next()
+  messageTurn(session, 1, { kind: 'goal', goalId: 'g1', revision: 1, round: 1 })
+  session.append('user/message', { content: [{ type: 'text', text: 'job done' }], source: { kind: 'tool-jobs', form: 'notice' } } as never, { surfaceOp: 'append' })
+  session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  sentinel.append('turn/start', { turn: 1 })
+  sentinel.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: sentinel.id, kind: 'completed' }])
+})
+
+it('lets a real goal trigger override a tool-jobs notice that arrived first in the turn', async t => {
+  // DSH 先认领 next-step 再认领 next-turn，注入的 tool-jobs 可能排在 goal 触发消息前；
+  // 它标了 weak，不能被当成后台唤醒，后到的 goal 要能覆盖它。
+  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: false, subagentWake: false, backgroundWake: true }))
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('tool-jobs-before-goal'))
+  const sentinel = ctx.sessions.create(SessionId('tool-jobs-before-goal-sentinel'))
+  const next = stream.next()
+  session.append('turn/start', { turn: 1 })
+  session.append('user/message', { content: [{ type: 'text', text: 'job done' }], source: { kind: 'tool-jobs', form: 'notice' } } as never, { surfaceOp: 'append' })
+  session.append('user/message', { content: [{ type: 'text', text: 'round' }], source: { kind: 'goal', goalId: 'g1', revision: 1, round: 1 } } as never, { surfaceOp: 'append' })
+  session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  sentinel.append('turn/start', { turn: 1 })
+  sentinel.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: sentinel.id, kind: 'completed' }])
+})
+
 it('announces a goal terminal change once and does not double-announce its final round', async t => {
   const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: true, subagentWake: false, backgroundWake: false }))
   await stream.next()
@@ -317,6 +432,29 @@ it('announces a goal terminal change once and does not double-announce its final
   sourceTurn(session, 3, 'goal')
   session.append('turn/end', { turn: 3, reason: { kind: 'completed' } })
   expect(frameOf(await next).events).toMatchObject([{ sessionId: session.id, kind: 'completed' }])
+})
+
+it('does not double-announce a goal terminal and its final round beyond the dedupe window', async t => {
+  // 真实会话里 goal/change(complete) 与末轮 turn/end 相隔 13 秒，超过 5 秒窗口。
+  // 两者仍应只提醒一次：终态一旦发布，后续同 goal id 的末轮完成必须抑制，不能靠时间窗。
+  const now = { value: 1_000_000 }
+  vi.spyOn(Date, 'now').mockImplementation(() => now.value)
+  t.onTestFinished(() => vi.restoreAllMocks())
+  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: true, subagentWake: false, backgroundWake: false }))
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('goal-terminal-far'))
+  const sentinel = ctx.sessions.create(SessionId('goal-terminal-far-sentinel'))
+  const terminal = stream.next()
+  session.append('goal/change', { kind: 'goal/change', version: 1, operation: 'complete', goal: { id: 'g1', revision: 1, phase: 'completed' }, roundsStarted: 3 } as never)
+  expect(frameOf(await terminal).events).toMatchObject([{ sessionId: session.id, kind: 'completed' }])
+  now.value += 13_000
+  const final = stream.next()
+  messageTurn(session, 3, { kind: 'goal', goalId: 'g1', revision: 1, round: 3 })
+  session.append('turn/end', { turn: 3, reason: { kind: 'completed' } })
+  // 末轮被抑制后没有事件可发，用一条真实 user 回合逼出一帧，断言帧里只有它。
+  messageTurn(sentinel, 1, { kind: 'user' })
+  sentinel.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await final).events).toMatchObject([{ sessionId: sentinel.id, kind: 'completed' }])
 })
 
 it('does not double-announce a goal completion whose final round carries a tool-goal wrap-up', async t => {
