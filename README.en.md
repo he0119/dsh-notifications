@@ -20,12 +20,14 @@ Four events, each with its own switch and sound:
 
 | Event | When it fires |
 | --- | --- |
-| Completed | The assistant finished this turn normally |
+| Completed | Work you started finishes normally; for a goal, when the goal itself finishes, once |
 | Interrupted | It stopped because of an error or a limit |
 | Reply needed | The assistant is waiting for your answer |
 | Approval needed | A tool call is waiting for your approval |
 
 Only root conversations are announced, including the ones you forked yourself. Subagents and teammates never ring or pop up, so one task cannot flood you with notifications.
+
+Automatic goal rounds stay silent by default so each round does not pop up; so do the closing turns after a subagent, a scheduled task, or a background job wakes the session. If you want those, turn on "Announce every goal round", "Announce subagent wake-ups" and "Announce scheduled wake-ups" in the plugin settings. Errors and interruptions are always announced, regardless of the switches.
 
 ## How it alerts
 

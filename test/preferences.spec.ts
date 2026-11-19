@@ -4,6 +4,7 @@ it('upgrades legacy native form values that omit newer audio fields',()=>{
  const value=normalizeNotificationPreferences({desktop:false,completed:{enabled:false}})!
  expect(value.volume).toBe(80);expect(value.soundEnabled).toBe(true);expect(value.popupMode).toBe('never')
  expect(value.completed).toEqual({enabled:false,sound:'chime'});expect(value.approval).toEqual({enabled:true,sound:'double'})
+ expect(value.goalRounds).toBe(false);expect(value.subagentWake).toBe(false);expect(value.backgroundWake).toBe(false)
 })
 it('preserves explicit zero, mute and popup mode independently',()=>{
  const value=normalizeNotificationPreferences({desktop:false,volume:0,soundEnabled:false,popupMode:'always'})!
