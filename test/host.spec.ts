@@ -5,7 +5,7 @@ import { expect, it, type TestContext } from 'vitest'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { LlmAdapter, LlmError, createUserMessage, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
-import { createNotificationHost } from '../src/host.ts'
+import { createNotificationHost, type NotificationHostOptions } from '../src/host.ts'
 import type { NotificationFrame } from '../src/runtime/types.ts'
 
 function frameOf(result: IteratorResult<NotificationFrame>): NotificationFrame {
@@ -13,11 +13,11 @@ function frameOf(result: IteratorResult<NotificationFrame>): NotificationFrame {
   return result.value
 }
 
-async function fixture(t: TestContext, agents = false) {
+async function fixture(t: TestContext, agents = false, options?: () => NotificationHostOptions) {
   const ctx = new Context()
   if (agents) { await mountAgentLoopTestDependencies(ctx, { workingDirectory: true }); await ctx.plugin(AgentLoop, { agents: [] }) }
   else await ctx.plugin(SessionStore)
-  const host = createNotificationHost(ctx)
+  const host = createNotificationHost(ctx, options)
   const controller = new AbortController()
   t.onTestFinished(async () => { controller.abort(); host.dispose(); await ctx.fiber.dispose() })
   const stream = host.observe(controller.signal)[Symbol.asyncIterator]()
@@ -248,4 +248,143 @@ it('keeps user main-session forks eligible even when they have seed lineage',asy
  const fork=ctx.sessions.create(SessionId('main-user-fork'),{meta:{parentSession:source.id}})
  const next=stream.next();fork.append('turn/start',{turn:1});fork.append('turn/end',{turn:1,reason:{kind:'completed'}})
  expect(frameOf(await next).events).toMatchObject([{sessionId:fork.id,kind:'completed'}])
+})
+
+/** Append a user message with one of DSH's automatic sources to a live session. */
+function sourceTurn(session: ReturnType<Context['sessions']['create']>, turn: number, kind: string): void {
+  session.append('turn/start', { turn })
+  session.append('user/message', { content: [{ type: 'text', text: kind }], source: { kind } } as never, { surfaceOp: 'append' })
+}
+
+it('announces a completed user turn but stays silent for goal rounds and background wakes by default', async t => {
+  const { ctx, stream } = await fixture(t)
+  await stream.next()
+  const user = ctx.sessions.create(SessionId('source-user'))
+  const goal = ctx.sessions.create(SessionId('source-goal'))
+  const schedule = ctx.sessions.create(SessionId('source-schedule'))
+  const settled = ctx.sessions.create(SessionId('source-settled'))
+  const next = stream.next()
+  sourceTurn(user, 1, 'user')
+  user.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  sourceTurn(goal, 1, 'goal')
+  goal.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  sourceTurn(schedule, 1, 'schedule')
+  schedule.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  sourceTurn(settled, 1, 'subagent-settled')
+  settled.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: user.id, kind: 'completed' }])
+})
+
+it('honours the goalRounds, subagentWake and backgroundWake options independently', async t => {
+  const options = { goalRounds: false, subagentWake: false, backgroundWake: false }
+  const { ctx, stream } = await fixture(t, false, () => options)
+  await stream.next()
+  const goal = ctx.sessions.create(SessionId('option-goal'))
+  const sub = ctx.sessions.create(SessionId('option-sub'))
+  const schedule = ctx.sessions.create(SessionId('option-schedule'))
+  options.goalRounds = true; options.subagentWake = true
+  const next = stream.next()
+  sourceTurn(goal, 1, 'goal')
+  goal.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  sourceTurn(sub, 1, 'subagent-settled')
+  sub.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  sourceTurn(schedule, 1, 'schedule')
+  schedule.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: goal.id, kind: 'completed' }, { sessionId: sub.id, kind: 'completed' }])
+  options.backgroundWake = true
+  const second = stream.next()
+  sourceTurn(schedule, 2, 'schedule')
+  schedule.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
+  expect(frameOf(await second).events).toMatchObject([{ sessionId: schedule.id, kind: 'completed' }])
+})
+
+it('still announces a failure from a goal round or background wake', async t => {
+  const { ctx, stream } = await fixture(t)
+  await stream.next()
+  const goal = ctx.sessions.create(SessionId('failure-goal'))
+  const next = stream.next()
+  sourceTurn(goal, 1, 'goal')
+  goal.append('turn/end', { turn: 1, reason: { kind: 'error', error: { code: 'RATE_LIMIT', message: 'private' } } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: goal.id, kind: 'interrupted', reason: 'RATE_LIMIT' }])
+})
+
+it('announces a goal terminal change once and does not double-announce its final round', async t => {
+  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: true, subagentWake: false, backgroundWake: false }))
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('goal-terminal'))
+  const next = stream.next()
+  session.append('goal/change', { kind: 'goal/change', version: 1, operation: 'complete', goal: { id: 'g1', revision: 1, phase: 'completed' }, roundsStarted: 3, createdAt: 0, updatedAt: 1 } as never)
+  sourceTurn(session, 3, 'goal')
+  session.append('turn/end', { turn: 3, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: session.id, kind: 'completed' }])
+})
+
+it('does not double-announce a goal completion whose final round carries a tool-goal wrap-up', async t => {
+  // Real goal completion order: goal/change(complete) first, then the tool-goal
+  // wrap-up context appended into the same round, then turn/end. The wrap-up
+  // must stay a goal source so it cannot be mistaken for user work and bypass
+  // the terminal's dedupe entry.
+  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: true, subagentWake: false, backgroundWake: false }))
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('goal-tool-goal'))
+  const next = stream.next()
+  session.append('goal/change', { kind: 'goal/change', version: 1, operation: 'complete', goal: { id: 'g1', revision: 1, phase: 'completed' }, roundsStarted: 3, createdAt: 0, updatedAt: 1 } as never)
+  session.append('turn/start', { turn: 3 })
+  session.append('user/message', { content: [{ type: 'text', text: 'wrap-up' }], source: { kind: 'tool-goal', form: 'notice' } } as never, { surfaceOp: 'append' })
+  session.append('turn/end', { turn: 3, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: session.id, kind: 'completed' }])
+})
+
+it('announces a goal block as interrupted and dedupes the final round', async t => {
+  const { ctx, stream } = await fixture(t)
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('goal-block'))
+  const next = stream.next()
+  session.append('goal/change', { kind: 'goal/change', version: 1, operation: 'block', goal: { id: 'g1', revision: 2, phase: 'blocked' }, roundsStarted: 2, createdAt: 0, updatedAt: 1 } as never)
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: session.id, kind: 'interrupted', reason: 'goal:block' }])
+})
+
+it('does not mistake an injected runtime-context message for a user turn', async t => {
+  const { ctx, stream } = await fixture(t)
+  await stream.next()
+  const goal = ctx.sessions.create(SessionId('context-goal'))
+  const sentinel = ctx.sessions.create(SessionId('context-sentinel'))
+  goal.append('turn/start', { turn: 1 })
+  goal.append('user/message', { content: [{ type: 'text', text: 'context' }], source: { kind: 'runtime-context' } } as never, { surfaceOp: 'append' })
+  goal.append('user/message', { content: [{ type: 'text', text: 'round' }], source: { kind: 'goal', goalId: 'g1' } } as never, { surfaceOp: 'append' })
+  goal.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  const next = stream.next()
+  sentinel.append('turn/start', { turn: 1 })
+  sentinel.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([{ sessionId: sentinel.id, kind: 'completed' }])
+})
+
+it('announces two different goals in one session separately', async t => {
+  const { ctx, stream } = await fixture(t)
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('two-goals'))
+  const first = stream.next()
+  session.append('goal/change', { kind: 'goal/change', version: 1, operation: 'complete', goal: { id: 'g1', revision: 1 }, roundsStarted: 1 } as never)
+  expect(frameOf(await first).events).toMatchObject([{ sessionId: session.id, kind: 'completed' }])
+  const second = stream.next()
+  session.append('goal/change', { kind: 'goal/change', version: 2, operation: 'complete', goal: { id: 'g2', revision: 1 }, roundsStarted: 1 } as never)
+  expect(frameOf(await second).events).toMatchObject([{ sessionId: session.id, kind: 'completed' }])
+})
+
+it('announces one interruption when a failed goal round is followed by its block terminal', async t => {
+  const { ctx, stream } = await fixture(t)
+  await stream.next()
+  const session = ctx.sessions.create(SessionId('goal-fail-block'))
+  const sentinel = ctx.sessions.create(SessionId('goal-fail-sentinel'))
+  const next = stream.next()
+  session.append('turn/start', { turn: 1 })
+  session.append('user/message', { content: [{ type: 'text', text: 'round' }], source: { kind: 'goal', goalId: 'g9' } } as never, { surfaceOp: 'append' })
+  session.append('turn/end', { turn: 1, reason: { kind: 'error', error: { code: 'RATE_LIMIT', message: 'private' } } })
+  session.append('goal/change', { kind: 'goal/change', version: 1, operation: 'block', goal: { id: 'g9', revision: 2 }, roundsStarted: 1 } as never)
+  sentinel.append('turn/start', { turn: 1 })
+  sentinel.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+  expect(frameOf(await next).events).toMatchObject([
+    { sessionId: session.id, kind: 'interrupted', reason: 'RATE_LIMIT' },
+    { sessionId: sentinel.id, kind: 'completed' },
+  ])
 })
