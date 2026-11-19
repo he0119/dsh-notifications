@@ -16,15 +16,16 @@ export interface NotificationHost extends NotificationReaders {
 /** Who caused one turn; only user turns announce completion by default. */
 type TurnSource = 'user' | 'goal' | 'subagent' | 'background'
 interface TurnState { readonly turn: number | undefined; terminal: boolean; pendingError?: string }
-interface SourceState { readonly source: TurnSource; readonly goalId?: string; at: number }
-interface GoalNotice { readonly kind: NotificationKind; readonly goalId?: string; at: number }
+interface SourceState { readonly source: TurnSource; readonly goalId?: string; readonly weak: boolean; at: number }
+/** terminal = goal/change; round = a goal-owned turn/end. One terminal outcome is announced once. */
+interface GoalNotice { readonly kind: NotificationKind; readonly goalId?: string; readonly terminal: boolean; at: number }
 /** Options read live from Volatile config so edits take effect without a reload. */
 export interface NotificationHostOptions {
   readonly goalRounds: boolean
   readonly subagentWake: boolean
   readonly backgroundWake: boolean
 }
-/** A goal terminal change and its final round settle within this window are one announcement. */
+/** Two goal-owned outcomes of the same kind within this window are one announcement. */
 const GOAL_DEDUPE_MS = 5000
 
 function outcome(reason: TurnEndReason): Pick<NotificationEvent, 'kind' | 'reason'> | undefined {
@@ -42,15 +43,49 @@ function errorCode(error: unknown): string {
   return 'UNKNOWN'
 }
 
+/**
+ * Context messages DSH injects into an already-open turn. They arrive as `user/message`
+ * events but carry no user intent. Leaving them in the `default: user` branch lets them
+ * overwrite the real trigger (goal, schedule, subagent) recorded earlier in the turn.
+ */
+const INJECTED_CONTEXT_KINDS = new Set([
+  'runtime-context',
+  'time-context',
+  'ptc-mode',
+  'agent-instructions',
+  'skill-catalog',
+  'compact-checkpoint',
+  'model-selection',
+  'tool-registry',
+  'session-reference',
+  'tmux-context',
+  'repeat-tool-reminder',
+  'action-cards',
+  'hooks-claude-code',
+  'hooks-codex',
+  'dsh-session-title-llm',
+])
+
+/**
+ * A tool-jobs notice is a weak background source: when it wakes an idle session it is the
+ * turn's first message (so backgroundWake gates it), but DSH claims next-step input before
+ * next-turn, so an injected notice can also precede the real trigger. `weak` lets that real
+ * trigger win without making the notice a user turn.
+ */
+function isWeakSource(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && 'kind' in value && value.kind === 'tool-jobs'
+}
+
 /** Merge-extensible message sources: `user` wins, goal rounds and background wakes are distinct. */
 function sourceOf(value: unknown): TurnSource | undefined {
   if (typeof value !== 'object' || value === null || !('kind' in value) || typeof value.kind !== 'string') return 'user'
-  switch (value.kind) {
+  const kind = value.kind
+  if (INJECTED_CONTEXT_KINDS.has(kind)) return undefined // Injected context is not a turn trigger.
+  switch (kind) {
     case 'user': return 'user'
     case 'goal': case 'tool-goal': return 'goal'
     case 'subagent-settled': case 'agent-message': return 'subagent'
-    case 'schedule': return 'background'
-    case 'runtime-context': return undefined // Injected context is not a turn trigger.
+    case 'schedule': case 'tool-jobs': return 'background' // Scheduled and job wakeups are background work.
     default: return 'user' // Unknown producers are treated as user work so nothing is silently missed.
   }
 }
@@ -77,15 +112,18 @@ export function createNotificationHost(ctx: Context, readOptions: () => Notifica
     if (session.header.origin === 'subagent' || (session.header.delegationDepth ?? 0) > 0) return
     feed.publish({ id: randomUUID(), sessionId: session.id, ...value })
   }
-  /** Announce a goal-owned outcome once: terminal and final round (or failure) share one goal id. */
-  const announceGoal = (session: Session, value: Pick<NotificationEvent, 'kind' | 'reason'>, goalId?: string): void => {
+  /** Announce one goal outcome; terminal and its final round share one entry keyed by goal id. */
+  const announceGoal = (session: Session, value: Pick<NotificationEvent, 'kind' | 'reason'>, goalId?: string, terminal = false): void => {
     const recent = goalNotices.get(session)
-    const withinWindow = recent !== undefined && Date.now() - recent.at < GOAL_DEDUPE_MS
+    const sameKind = recent?.kind === value.kind
     const sameGoal = goalId !== undefined && recent?.goalId === goalId
     const missingId = goalId === undefined || recent?.goalId === undefined
-    if (withinWindow && recent.kind === value.kind && (sameGoal || missingId)) return
+    const withinWindow = recent !== undefined && Date.now() - recent.at < GOAL_DEDUPE_MS
+    // A terminal is authoritative: its final round is suppressed however late it settles.
+    // Otherwise keep the short window so separate rounds of one goal still announce.
+    if (recent !== undefined && sameKind && (sameGoal || missingId) && (withinWindow || recent.terminal)) return
     publish(session, value)
-    goalNotices.set(session, { kind: value.kind, goalId, at: Date.now() })
+    goalNotices.set(session, { kind: value.kind, goalId, terminal, at: Date.now() })
   }
   const flushFailure = (session: Session) => {
     const state = turns.get(session)
@@ -99,13 +137,16 @@ export function createNotificationHost(ctx: Context, readOptions: () => Notifica
     ctx.on('session/event', (session, event) => {
       if (disposed) return
       if (event.type === 'user/message') {
-        const source = sourceOf((event.data as { source?: unknown }).source)
-        if (source === undefined) return // Runtime context is not a turn trigger.
+        const sourceValue = (event.data as { source?: unknown }).source
+        const source = sourceOf(sourceValue)
+        if (source === undefined) return // Injected context is not a turn trigger.
         const goalId = source === 'goal' ? (event.data as { source?: { goalId?: unknown } }).source?.goalId : undefined
         const current = sources.get(session)
-        // First non-runtime message identifies the turn's trigger; user work outranks the rest.
-        if (current === undefined || (current.source !== 'user' && source === 'user')) {
-          sources.set(session, { source, goalId: typeof goalId === 'string' ? goalId : undefined, at: Date.now() })
+        const weak = isWeakSource(sourceValue)
+        // First real message identifies the turn's trigger; user work outranks the rest.
+        // A weak tool-jobs notice sets a background trigger only if none is stronger yet.
+        if (current === undefined || (current.source !== 'user' && source === 'user') || (current.weak && !weak)) {
+          sources.set(session, { source, weak, goalId: typeof goalId === 'string' ? goalId : undefined, at: Date.now() })
         }
         return
       }
@@ -115,8 +156,8 @@ export function createNotificationHost(ctx: Context, readOptions: () => Notifica
         const data = (event as unknown as { data?: { operation?: unknown; goal?: { id?: unknown } } }).data
         const operation = data?.operation
         const goalId = typeof data?.goal?.id === 'string' ? data.goal.id : undefined
-        if (operation === 'complete') announceGoal(session, { kind: 'completed' }, goalId)
-        else if (operation === 'block') announceGoal(session, { kind: 'interrupted', reason: 'goal:block' }, goalId)
+        if (operation === 'complete') announceGoal(session, { kind: 'completed' }, goalId, true)
+        else if (operation === 'block') announceGoal(session, { kind: 'interrupted', reason: 'goal:block' }, goalId, true)
         return
       }
       if (event.type !== 'turn/start' && event.type !== 'turn/end') return
