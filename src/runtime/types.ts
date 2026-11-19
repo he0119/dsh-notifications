@@ -14,6 +14,12 @@ export interface NotificationSettings {
   readonly popupMode?: NotificationPopupMode
   readonly volume: number
   readonly soundEnabled?: boolean
+  /** Announce every automatic goal round, instead of only the goal's final state. */
+  readonly goalRounds: boolean
+  /** Announce the closing turn after a subagent wakes the main session. */
+  readonly subagentWake: boolean
+  /** Announce the closing turn after a scheduled task or background job wakes it. */
+  readonly backgroundWake: boolean
   readonly completed: NotificationRule
   readonly interrupted: NotificationRule
   readonly question: NotificationRule

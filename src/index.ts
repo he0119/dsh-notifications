@@ -21,7 +21,10 @@ export const inject = ['sessions', 'agents', 'typert', 'typertGateway', 'remoteA
 export function apply(ctx: Context, config: NotificationsConfig): void {
   installRuntimeMetadata(ctx)
   installNotificationWorkerRoute(ctx)
-  const source = createNotificationHost(ctx)
+  const source = createNotificationHost(ctx, () => {
+    const settings = readNotificationsConfig(config)
+    return { goalRounds: settings.goalRounds, subagentWake: settings.subagentWake, backgroundWake: settings.backgroundWake }
+  })
   const desktop = createDesktopNotificationHost({
     createCarrier: onActivate => createWindowsNotifications({ activateDesktop: () => activateDesktopApp(), onActivate }, { onWarning: message => ctx.logger.warn('Windows notification: ' + message) }),
     allowsSession: id => { const session = ctx.sessions.get(id as SessionId); return session === undefined ? undefined : session.header.origin !== 'subagent' && (session.header.delegationDepth ?? 0) === 0 },
