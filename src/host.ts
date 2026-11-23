@@ -21,6 +21,7 @@ interface SourceState { readonly source: TurnSource; readonly goalId?: string; r
 interface GoalNotice { readonly kind: NotificationKind; readonly goalId?: string; readonly terminal: boolean; at: number }
 /** Options read live from Volatile config so edits take effect without a reload. */
 export interface NotificationHostOptions {
+  readonly userTurns: boolean
   readonly goalRounds: boolean
   readonly subagentWake: boolean
   readonly backgroundWake: boolean
@@ -29,8 +30,9 @@ export interface NotificationHostOptions {
   readonly pluginWake: boolean
   readonly otherWake: boolean
 }
-/** The option that gates each automatic trigger family; user turns never consult this table. */
-const WAKE_OPTIONS: Record<Exclude<TurnSource, 'user' | 'goal'>, 'subagentWake' | 'backgroundWake' | 'teamWake' | 'webhookWake' | 'pluginWake' | 'otherWake'> = {
+/** The option that gates each trigger family; goal rounds go through the terminal dedupe instead. */
+const WAKE_OPTIONS: Record<Exclude<TurnSource, 'goal'>, 'userTurns' | 'subagentWake' | 'backgroundWake' | 'teamWake' | 'webhookWake' | 'pluginWake' | 'otherWake'> = {
+  user: 'userTurns',
   subagent: 'subagentWake',
   background: 'backgroundWake',
   team: 'teamWake',
@@ -116,7 +118,7 @@ function sourceOf(value: unknown): TurnSource | undefined {
  * and background wakes only when their options allow it. Goal terminal changes announce once,
  * even when the final round also announced its completion near the same time.
  */
-export function createNotificationHost(ctx: Context, readOptions: () => NotificationHostOptions = () => ({ goalRounds: false, subagentWake: false, backgroundWake: false, teamWake: false, webhookWake: false, pluginWake: false, otherWake: false })): NotificationHost {
+export function createNotificationHost(ctx: Context, readOptions: () => NotificationHostOptions = () => ({ userTurns: true, goalRounds: false, subagentWake: false, backgroundWake: false, teamWake: false, webhookWake: false, pluginWake: false, otherWake: false })): NotificationHost {
   const feed = createNotificationFeed()
   let turns = new WeakMap<Session, TurnState>()
   let sources = new WeakMap<Session, SourceState>()
@@ -189,16 +191,17 @@ export function createNotificationHost(ctx: Context, readOptions: () => Notifica
       const value = outcome(event.data.reason)
       if (!value) return
       const trigger = sources.get(session)
-      const goalRound = trigger?.source === 'goal'
+      // A turn with no recorded trigger is user work, same as an explicit `user` message.
+      const family: TurnSource = trigger?.source ?? 'user'
+      const goalRound = family === 'goal'
       // Failures always announce; goal failures share the terminal's dedupe entry.
       if (value.kind === 'interrupted') {
-        if (goalRound) announceGoal(session, value, trigger.goalId)
+        if (goalRound) announceGoal(session, value, trigger?.goalId)
         else publish(session, value)
         return
       }
-      if (trigger === undefined || trigger.source === 'user') publish(session, value)
-      else if (trigger.source === 'goal') { if (readOptions().goalRounds) announceGoal(session, value, trigger.goalId) }
-      else if (readOptions()[WAKE_OPTIONS[trigger.source]]) publish(session, value)
+      if (family === 'goal') { if (readOptions().goalRounds) announceGoal(session, value, trigger?.goalId) }
+      else if (readOptions()[WAKE_OPTIONS[family]]) publish(session, value)
     }),
     ctx.on('agent/error', ({ agent, turn, error }) => {
       if (disposed) return

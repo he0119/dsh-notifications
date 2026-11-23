@@ -9,6 +9,7 @@ export interface NotificationsConfig {
   popupMode: Volatile<'never' | 'unfocused' | 'always' | undefined>
   volume: Volatile<number>
   soundEnabled: Volatile<boolean>
+  userTurns: Volatile<boolean>
   goalRounds: Volatile<boolean>
   subagentWake: Volatile<boolean>
   backgroundWake: Volatile<boolean>
@@ -28,6 +29,7 @@ export const Config: z<Record<string, unknown>, NotificationsConfig> = z.object(
   popupMode: z.union(['never', 'unfocused', 'always']).volatile(),
   volume: z.natural().max(100).default(80).volatile(),
   soundEnabled: z.boolean().default(true).volatile(),
+  userTurns: z.boolean().default(true).volatile(),
   goalRounds: z.boolean().default(false).volatile(),
   subagentWake: z.boolean().default(false).volatile(),
   backgroundWake: z.boolean().default(false).volatile(),
@@ -42,5 +44,5 @@ export const Config: z<Record<string, unknown>, NotificationsConfig> = z.object(
 })
 /** @param config - accepted native notification preferences. @returns an ordinary immutable view. */
 export function readNotificationsConfig(config: NotificationsConfig): NotificationSettings {
-  return { desktop: config.desktop.get(), popupMode: config.popupMode.get() ?? (config.desktop.get() ? 'unfocused' : 'never'), volume: config.volume.get(), soundEnabled: config.soundEnabled.get(), goalRounds: config.goalRounds.get(), subagentWake: config.subagentWake.get(), backgroundWake: config.backgroundWake.get(), teamWake: config.teamWake.get(), webhookWake: config.webhookWake.get(), pluginWake: config.pluginWake.get(), otherWake: config.otherWake.get(), completed: config.completed.get(), interrupted: config.interrupted.get(), question: config.question.get(), approval: config.approval.get() }
+  return { desktop: config.desktop.get(), popupMode: config.popupMode.get() ?? (config.desktop.get() ? 'unfocused' : 'never'), volume: config.volume.get(), soundEnabled: config.soundEnabled.get(), userTurns: config.userTurns.get(), goalRounds: config.goalRounds.get(), subagentWake: config.subagentWake.get(), backgroundWake: config.backgroundWake.get(), teamWake: config.teamWake.get(), webhookWake: config.webhookWake.get(), pluginWake: config.pluginWake.get(), otherWake: config.otherWake.get(), completed: config.completed.get(), interrupted: config.interrupted.get(), question: config.question.get(), approval: config.approval.get() }
 }

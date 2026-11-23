@@ -28,16 +28,17 @@ Status: implemented
 | `webhook` | webhook | `webhookWake` |
 | `cordis-host-runner` | plugin | `pluginWake` |
 | 其它任何 kind | other | `otherWake` |
-| `user`、`retry` | user | 无（始终提醒） |
+| `user`、`retry` | user | `userTurns`（默认勾选） |
 
-`retry` 归用户：它是「继续生成」这种用户请求的延续，提醒是对的。其余未知 kind 归 `other`，不再归
-用户——插件自定义来源不该冒充人的动作。
+`retry` 归用户：它是「继续生成」这种用户请求的延续。其余未知 kind 归 `other`，不再归用户——
+插件自定义来源不该冒充人的动作。没有记录到触发者的回合也按用户处理。
 
 发布分支也改成查表：`WAKE_OPTIONS` 把族映射到配置字段，`turn/end` 的完成分支只剩「用户发起」
 与「查表命中就发」两条，新增一族时只改表。
 
-七个开关默认全部关闭，全部落进配置卡的「其它完成时机」一组勾选项里，由「会话完成」的父开关收起
-或展开。
+八个勾选项落进配置卡「哪些完成要提醒」一组里，由「会话完成」的父开关收起或展开；只有「你发起的
+回合」默认勾选，其余七项默认关闭。把用户回合也列进来，是为了让这组勾选项成为「会话完成在什么
+情况下提醒」的完整答案，而不是「用户回合永远提醒」加一张只列自动来源的清单。
 
 ## Alternatives considered
 
@@ -47,10 +48,13 @@ Status: implemented
   前提相反，等于把噪音当默认。
 - **团队消息并进子代理开关、webhook 与插件并进后台开关**：少四个开关，但用户没法单独关掉某一族，
   也看不出是哪一类自动回合在响。
+- **用户回合固定成一直提醒，不列进清单**：清单就不再回答「会话完成什么时候提醒」这个完整问题，
+  想只留目标轮次的人也没法关掉自己那部分。
 
 ## Consequences
 
-新增四个 volatile 配置字段进入 `NotificationSettings` 对外契约，旧配置缺少时按关闭处理；
+新增五个 volatile 配置字段（`userTurns` 及其余四族）进入 `NotificationSettings` 对外契约，旧配置缺少
+`userTurns` 时按开启处理——那是出厂行为；
 `test/config.spec.ts`、`test/preferences.spec.ts`、`test/delivery.spec.tsx` 的默认值断言同步更新。
 
 代价：DSH 以后新增一种唤醒来源时，在 `sourceOf` 列出它之前会落进 `other` 并默认静音。

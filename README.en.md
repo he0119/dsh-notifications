@@ -27,7 +27,7 @@ Four events, each with its own switch and sound:
 
 Only root conversations are announced, including the ones you forked yourself. Subagents and teammates never ring or pop up, so one task cannot flood you with notifications.
 
-Turns that start by themselves stay silent by default: intermediate goal rounds, the closing turn after a subagent wake-up, after a scheduled task or background job, after a team message, after an external event (a webhook delivery), and after a plugin run. The "Other completion moments" group in the plugin settings lists each of them; check the ones you want. Errors and interruptions are always announced, regardless of those choices.
+The "Which completions to announce" group in the plugin settings decides when "Conversation completed" fires: turns you start are checked by default, while every goal round, the closing turn after a subagent wake-up, after a background task, after a team message, after an external event (a webhook delivery), after a plugin run, and after any other source stay unchecked so automatic rounds do not pop up one by one. Errors and interruptions are always announced, regardless of those choices.
 
 ## How it alerts
 

@@ -6,7 +6,7 @@ import { Config, readNotificationsConfig } from '../src/config.ts'
 it('has distinct default sounds and independently saves each notification category',()=>{
  const read=readNotificationsConfig
  const defaults=read(resolveConfig({Config},{}))
- expect(defaults).toEqual({desktop:true,popupMode:'unfocused',volume:80,soundEnabled:true,goalRounds:false,subagentWake:false,backgroundWake:false,teamWake:false,webhookWake:false,pluginWake:false,otherWake:false,completed:{enabled:true,sound:'chime'},interrupted:{enabled:true,sound:'alert'},question:{enabled:true,sound:'soft'},approval:{enabled:true,sound:'double'}})
+ expect(defaults).toEqual({desktop:true,popupMode:'unfocused',volume:80,soundEnabled:true,userTurns:true,goalRounds:false,subagentWake:false,backgroundWake:false,teamWake:false,webhookWake:false,pluginWake:false,otherWake:false,completed:{enabled:true,sound:'chime'},interrupted:{enabled:true,sound:'alert'},question:{enabled:true,sound:'soft'},approval:{enabled:true,sound:'double'}})
  const settings=read(resolveConfig({Config},{desktop:false,volume:95,question:{sound:'alert'},approval:{enabled:false,sound:'none'}}))
  expect(settings.question).toEqual({enabled:true,sound:'alert'})
  expect(settings.approval).toEqual({enabled:false,sound:'none'})
@@ -18,6 +18,8 @@ it('has distinct default sounds and independently saves each notification catego
  const noSound=read(resolveConfig({Config},{soundEnabled:false,popupMode:'always'}))
  expect(noSound.soundEnabled).toBe(false)
  expect(noSound.popupMode).toBe('always')
+ expect(defaults.userTurns).toBe(true)
+ expect(read(resolveConfig({Config},{userTurns:false})).userTurns).toBe(false)
  const wakes=read(resolveConfig({Config},{goalRounds:true,subagentWake:true,backgroundWake:true,teamWake:true,webhookWake:true,pluginWake:true,otherWake:true}))
  expect(wakes.goalRounds).toBe(true)
  expect(wakes.subagentWake).toBe(true)

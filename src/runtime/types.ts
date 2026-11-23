@@ -14,6 +14,8 @@ export interface NotificationSettings {
   readonly popupMode?: NotificationPopupMode
   readonly volume: number
   readonly soundEnabled?: boolean
+  /** Announce completed turns the user started; on by default, unlike the automatic ones. */
+  readonly userTurns: boolean
   /** Announce every automatic goal round, instead of only the goal's final state. */
   readonly goalRounds: boolean
   /** Announce the closing turn after a subagent wakes the main session. */

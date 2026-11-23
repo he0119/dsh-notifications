@@ -22,7 +22,7 @@ export type NotificationSettingsProps = PropsRuntime<'plugins.bundle.config'> & 
 const kinds: readonly NotificationKind[] = ['completed', 'interrupted', 'question', 'approval']
 const sounds: readonly NotificationSound[] = ['none', 'soft', 'double', 'chime', 'alert', 'custom']
 /** 「会话完成」下面那组勾选项：自动跑起来的回合结束时算不算完成。 */
-const wakeOptions = ['goalRounds', 'subagentWake', 'backgroundWake', 'teamWake', 'webhookWake', 'pluginWake', 'otherWake'] as const
+const wakeOptions = ['userTurns', 'goalRounds', 'subagentWake', 'backgroundWake', 'teamWake', 'webhookWake', 'pluginWake', 'otherWake'] as const
 /**
  * 画这张通知配置卡：一个决定一行，排布与 DSH 设置页一致——左边一句话，右边它的控件。
  *
@@ -174,6 +174,7 @@ export function installNotificationsCard(ctx: Context, { form, client }: { form:
     saveSettings: (value, revision) => revision !== undefined && form.getSnapshot().revision === revision && typeof form.getSnapshot().value?.volume === 'number' ? form.mutate([
       { op: 'set', path: ['popupMode'], value: value.popupMode ?? (value.desktop ? 'unfocused' : 'never') },
       { op: 'set', path: ['soundEnabled'], value: value.soundEnabled ?? true },
+      { op: 'set', path: ['userTurns'], value: value.userTurns },
       { op: 'set', path: ['goalRounds'], value: value.goalRounds },
       { op: 'set', path: ['subagentWake'], value: value.subagentWake },
       { op: 'set', path: ['backgroundWake'], value: value.backgroundWake },
