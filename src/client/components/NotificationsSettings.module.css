@@ -94,7 +94,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 6px;
+  padding: 5px 6px;
   border-radius: var(--dsw-radius-md, 12px);
   cursor: pointer;
 }
@@ -114,11 +114,24 @@
   cursor: inherit;
 }
 
+.groupText {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
 .groupTitle {
   min-width: 0;
   color: var(--dsw-alias-label-primary, inherit);
   font-size: 13px;
-  line-height: 20px;
+  line-height: 19px;
+}
+
+.groupNote {
+  color: var(--dsw-alias-label-tertiary, inherit);
+  font-size: 11px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
 }
 
 /* 组之后的第一行仍然要一条分隔线（原来是 .row + .row，这里被 fieldset 打断了）。 */

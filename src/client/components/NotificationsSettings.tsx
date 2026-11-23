@@ -1,6 +1,6 @@
 import { normalizeNotificationPreferences } from '../logic/preferences.ts'
 /** Native revision-fenced settings and user-activated notification checks. */
-import { Fragment, useRef, useState } from 'react'
+import { Fragment, useId, useRef, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import { Button, SettingsForm, StateDot, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -22,7 +22,16 @@ export type NotificationSettingsProps = PropsRuntime<'plugins.bundle.config'> & 
 const kinds: readonly NotificationKind[] = ['completed', 'interrupted', 'question', 'approval']
 const sounds: readonly NotificationSound[] = ['none', 'soft', 'double', 'chime', 'alert', 'custom']
 /** 「会话完成」下面那组勾选项：自动跑起来的回合结束时算不算完成。 */
-const wakeOptions = ['userTurns', 'goalRounds', 'subagentWake', 'backgroundWake', 'teamWake', 'webhookWake', 'pluginWake', 'otherWake'] as const
+const wakeOptions = [
+  { field: 'userTurns', note: 'userTurnsNote' },
+  { field: 'goalRounds', note: 'goalRoundsNote' },
+  { field: 'subagentWake', note: 'subagentWakeNote' },
+  { field: 'backgroundWake', note: 'backgroundWakeNote' },
+  { field: 'teamWake', note: 'teamWakeNote' },
+  { field: 'webhookWake', note: 'webhookWakeNote' },
+  { field: 'pluginWake', note: 'pluginWakeNote' },
+  { field: 'otherWake', note: 'otherWakeNote' },
+] as const
 /**
  * 画这张通知配置卡：一个决定一行，排布与 DSH 设置页一致——左边一句话，右边它的控件。
  *
@@ -33,6 +42,7 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
   // 列表里那一行只画一句摘要，由插件页自己排版；这张表单只在整页时出现。
   if (props.view === 'summary') return null
   const { t } = props
+  const wakeId = useId()
   const snapshot = props.useNotificationSettings(value => value)
   const capability = props.useNotificationCapabilities(value => value)
   const accepted = props.useNotificationPreferences(value => value)
@@ -148,10 +158,14 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
             {/* 「会话完成」下面这组：勾上哪些额外时机也算一次完成（照子智能体那张卡的可勾选列表）。 */}
             {kind === 'completed' && value.completed.enabled && <fieldset className={styles.group}>
               <legend>{t('wakeGroup')}</legend>
-              {wakeOptions.map(field => <label key={field} className={styles.groupItem}>
-                <input type="checkbox" checked={value[field]} disabled={blocked}
-                  onChange={event => change({ ...value, [field]: event.currentTarget.checked })} />
-                <span className={styles.groupTitle}>{t(field)}</span>
+              {wakeOptions.map(option => <label key={option.field} className={styles.groupItem}>
+                {/* 名字只取标题，说明挂成描述：读屏先报「目标每轮」，再补一句它是什么。 */}
+                <input type="checkbox" checked={value[option.field]} disabled={blocked} aria-label={t(option.field)} aria-describedby={`${wakeId}-${option.field}`}
+                  onChange={event => change({ ...value, [option.field]: event.currentTarget.checked })} />
+                <span className={styles.groupText}>
+                  <span className={styles.groupTitle}>{t(option.field)}</span>
+                  <span className={styles.groupNote} id={`${wakeId}-${option.field}`}>{t(option.note)}</span>
+                </span>
               </label>)}
             </fieldset>}
           </Fragment>

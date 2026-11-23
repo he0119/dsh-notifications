@@ -165,6 +165,8 @@ it('offers the extra completion moments as items under the completed switch', ()
   const controls = settingsFixture()
   render(<NotificationsSettings {...controls.props} />)
   expect(screen.getByRole('group', { name: en.wakeGroup })).toBeTruthy()
+  // 八项名字互相很像，每项下面那一句就是用来区分的。
+  expect(screen.getByText(en.goalRoundsNote)).toBeTruthy()
   fireEvent.click(screen.getByRole('checkbox', { name: en.goalRounds }))
   fireEvent.click(screen.getByRole('switch', { name: en.completed }))
   expect(screen.queryByRole('checkbox', { name: en.goalRounds })).toBeNull()
