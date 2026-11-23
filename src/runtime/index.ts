@@ -40,7 +40,7 @@ export class Notifications extends TypertRemoteService {
       yield {
         epoch: frame.epoch, cursor: frame.cursor, baseline: frame.baseline,
         events: frame.events.filter(event => this.readers.allowsSession(this.ctx, event.sessionId)),
-        settings: { desktop: settings.desktop, popupMode: settings.popupMode ?? (settings.desktop ? 'unfocused' : 'never'), volume: settings.volume, soundEnabled: settings.soundEnabled ?? true, completed: {...settings.completed}, interrupted: {...settings.interrupted}, question: {...settings.question}, approval: {...settings.approval} },
+        settings: { desktop: settings.desktop, popupMode: settings.popupMode ?? (settings.desktop ? 'unfocused' : 'never'), volume: settings.volume, soundEnabled: settings.soundEnabled ?? true, userTurns: settings.userTurns, goalRounds: settings.goalRounds, subagentWake: settings.subagentWake, backgroundWake: settings.backgroundWake, teamWake: settings.teamWake, webhookWake: settings.webhookWake, pluginWake: settings.pluginWake, otherWake: settings.otherWake, completed: {...settings.completed}, interrupted: {...settings.interrupted}, question: {...settings.question}, approval: {...settings.approval} },
       }
     }
   }

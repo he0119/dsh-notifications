@@ -83,7 +83,7 @@ pnpm run pack:release # 构建并打包到 artifacts/
 | `src/client/index.ts` | 浏览器入口（薄）：装样式、挂载本包的接口、注册插件页里那张配置卡 |
 | `src/client/notifications.ts` | 浏览器端的通知本体：订阅事件流，按四类偏好决定弹窗与提示音 |
 | `src/client/logic/` | 不碰 React 的逻辑：投递、声音、自定义音频存储、文案与字典、偏好归一、桌面通道、Service Worker 客户端 |
-| `src/client/components/` | 插件页里的配置卡 `NotificationsSettings.tsx`（槽位 `plugins.bundle.config`，按包名作键）与两份 CSS Modules |
+| `src/client/components/` | 插件页里的配置卡 `NotificationsSettings.tsx`（槽位 `plugins.bundle.config`，按包名作键）与其 CSS 模块 |
 | `test/` | 通知行为与打包契约的测试，一条行为一个文件 |
 
 `src/runtime/generated/` 是生成物（见上一节），不要手改。`src/windows/` 是唯一按操作系统分的目录，

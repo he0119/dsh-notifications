@@ -30,3 +30,6 @@ Status: implemented
 用户看不到子代理的结果，只能自己点开会话看。判断依据是会话头部的 `origin` 与 `delegationDepth`：
 DSH 换一种表达方式时，`src/host.ts` 的 `publish()` 与 `src/index.ts` 里的 `allowsSession` 要一起改，
 `test/host.spec.ts` 与 `test/desktop-host.spec.ts` 会先红。
+
+这条规则只区分「谁开的会话」，还没区分「主会话里这次回合是谁触发的」；goal 续轮和后台唤醒产生的完成
+提醒由[完成提醒按回合触发者过滤](../bug-fix/2026-11-19-completion-by-turn-source.md)进一步处理。

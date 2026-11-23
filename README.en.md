@@ -20,12 +20,14 @@ Four events, each with its own switch and sound:
 
 | Event | When it fires |
 | --- | --- |
-| Completed | The assistant finished this turn normally |
+| Completed | Work you started finishes normally; for a goal, when the goal itself finishes, once |
 | Interrupted | It stopped because of an error or a limit |
 | Reply needed | The assistant is waiting for your answer |
 | Approval needed | A tool call is waiting for your approval |
 
 Only root conversations are announced, including the ones you forked yourself. Subagents and teammates never ring or pop up, so one task cannot flood you with notifications.
+
+The "Which completions to announce" group in the plugin settings decides when "Conversation completed" fires: turns you start are checked by default, while every goal round, the closing turn after a subagent wake-up, after a background task, after a team message, after an external event (a webhook delivery), after a plugin run, and after any other source stay unchecked so automatic rounds do not pop up one by one. Errors and interruptions are always announced, regardless of those choices.
 
 ## How it alerts
 

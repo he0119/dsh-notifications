@@ -50,7 +50,7 @@ class AudioFixture {
   createGain() { return { gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() } }
   createOscillator() { return { type: '', frequency: { setValueAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn(), onended: null, start: () => AudioFixture.count++, stop: vi.fn() } }
 }
-const preferences: NotificationSettings = { desktop: true, volume: 80, completed: { enabled: true, sound: 'chime' }, interrupted: { enabled: true, sound: 'alert' }, question: { enabled: true, sound: 'soft' }, approval: { enabled: true, sound: 'double' } }
+const preferences: NotificationSettings = { desktop: true, volume: 80, userTurns: true, goalRounds: false, subagentWake: false, backgroundWake: false, teamWake: false, webhookWake: false, pluginWake: false, otherWake: false, completed: { enabled: true, sound: 'chime' }, interrupted: { enabled: true, sound: 'alert' }, question: { enabled: true, sound: 'soft' }, approval: { enabled: true, sound: 'double' } }
 const event: NotificationEvent = { id: 'completed:1', sessionId: 'session-1', kind: 'completed' }
 const copy = { title: (kind: string) => kind, body: (kind: string) => kind + ' body', testTitle: 'Test', testBody: 'Test body' }
 function fixture(settings: NotificationSettings = preferences) {
@@ -132,15 +132,17 @@ function settingsFixture(writable = true) {
   const t: NotificationSettingsProps['t'] = (key, values) => { let text = en[key]; for (const [name, value] of Object.entries(values ?? {})) text = text.replace('{' + name + '}', String(value)); return text }
   const importCustomSound = vi.fn(async (_kind: string, _file: File) => true), removeCustomSound = vi.fn(async (_kind: string) => true)
   const props: NotificationSettingsProps = { importCustomSound, removeCustomSound, t, useNotificationPreferences: selector => selector(preferences), useNotificationSettings: selector => selector(snapshot), useNotificationCapabilities: selector => selector({ supported: true, secure: true, permission: 'default', audio: 'unknown', failed: false }), requestPermission, preview, test, saveSettings }
-  return { props, requestPermission, preview, test, saveSettings, importCustomSound, removeCustomSound }
+  const setRevision = (next: number): void => { snapshot = { ...snapshot, revision: next } }
+  return { props, requestPermission, preview, test, saveSettings, importCustomSound, removeCustomSound, setRevision }
 }
 it('edits each category without autosaving and performs permission or preview only on explicit clicks', async () => {
   const controls = settingsFixture()
   render(<NotificationsSettings {...controls.props} />)
-  expect(screen.getAllByRole('checkbox')).toHaveLength(5)
+  expect(screen.getAllByRole('switch')).toHaveLength(5)
+  expect(screen.getAllByRole('checkbox')).toHaveLength(8)
   expect(controls.requestPermission).not.toHaveBeenCalled(); expect(controls.preview).not.toHaveBeenCalled(); expect(controls.test).not.toHaveBeenCalled()
   fireEvent.change(screen.getByRole('combobox', { name: 'Sound for Reply needed' }), { target: { value: 'alert' } })
-  fireEvent.click(screen.getByRole('checkbox', { name: en.approval }))
+  fireEvent.click(screen.getByRole('switch', { name: en.approval }))
   expect(controls.saveSettings).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: 'Preview Reply needed' }))
   expect(controls.preview).toHaveBeenCalledWith('alert', 80, 'question')
@@ -151,6 +153,41 @@ it('edits each category without autosaving and performs permission or preview on
   fireEvent.click(screen.getByRole('button', { name: en.save }))
   await waitFor(() => expect(controls.saveSettings).toHaveBeenCalledWith({ ...preferences, popupMode: 'unfocused', soundEnabled: true, question: { enabled: true, sound: 'alert' }, approval: { enabled: false, sound: 'double' } }, 7))
 })
+it('shows a visible notification-test result in the status line', () => {
+  const controls = settingsFixture()
+  controls.props.useNotificationCapabilities = selector => selector({ supported: true, secure: true, permission: 'granted', audio: 'ready', failed: false, testStatus: 'shown' })
+  render(<NotificationsSettings {...controls.props} />)
+  expect(screen.getByText(en.testShown)).toBeTruthy()
+})
+
+it('offers the extra completion moments as items under the completed switch', () => {
+  // 「目标每轮完成」这些是「会话完成」下面的可勾选项：会话完成关掉时它们没有意义，跟着一起收起来。
+  const controls = settingsFixture()
+  render(<NotificationsSettings {...controls.props} />)
+  expect(screen.getByRole('group', { name: en.wakeGroup })).toBeTruthy()
+  // 八项名字互相很像，每项下面那一句就是用来区分的。
+  expect(screen.getByText(en.goalRoundsNote)).toBeTruthy()
+  fireEvent.click(screen.getByRole('checkbox', { name: en.goalRounds }))
+  fireEvent.click(screen.getByRole('switch', { name: en.completed }))
+  expect(screen.queryByRole('checkbox', { name: en.goalRounds })).toBeNull()
+  expect(screen.queryByRole('group', { name: en.wakeGroup })).toBeNull()
+})
+
+it('only offers discarding a draft once another revision has landed', () => {
+  // 官方外框只提供「保存」，所以草稿撞上别处的编辑时，卡片要给一条说明和一个退出的入口。
+  const controls = settingsFixture()
+  const { rerender } = render(<NotificationsSettings {...controls.props} />)
+  expect(screen.queryByRole('button', { name: en.discard })).toBeNull()
+  fireEvent.click(screen.getByRole('switch', { name: en.question }))
+  expect(screen.queryByRole('alert')).toBeNull()
+  controls.setRevision(8)
+  rerender(<NotificationsSettings {...controls.props} />)
+  expect(screen.getByRole('alert').textContent).toBe(en.conflict)
+  fireEvent.click(screen.getByRole('button', { name: en.discard }))
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.queryByRole('button', { name: en.discard })).toBeNull()
+})
+
 it('keeps local permission and audio tests available while host preferences are read-only', () => {
   const controls = settingsFixture(false)
   render(<NotificationsSettings {...controls.props} />)
@@ -194,6 +231,14 @@ it('registers the plugin-page config card and writes native paths only against t
     expect(mutate).toHaveBeenCalledWith([
       { op: 'set', path: ['popupMode'], value: 'unfocused' },
       { op: 'set', path: ['soundEnabled'], value: true },
+      { op: 'set', path: ['userTurns'], value: true },
+      { op: 'set', path: ['goalRounds'], value: false },
+      { op: 'set', path: ['subagentWake'], value: false },
+      { op: 'set', path: ['backgroundWake'], value: false },
+      { op: 'set', path: ['teamWake'], value: false },
+      { op: 'set', path: ['webhookWake'], value: false },
+      { op: 'set', path: ['pluginWake'], value: false },
+      { op: 'set', path: ['otherWake'], value: false },
       { op: 'set', path: ['volume'], value: 80 },
       { op: 'set', path: ['completed'], value: { enabled: true, sound: 'chime' } },
       { op: 'set', path: ['interrupted'], value: { enabled: true, sound: 'alert' } },

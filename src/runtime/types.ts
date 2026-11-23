@@ -14,6 +14,22 @@ export interface NotificationSettings {
   readonly popupMode?: NotificationPopupMode
   readonly volume: number
   readonly soundEnabled?: boolean
+  /** Announce completed turns the user started; on by default, unlike the automatic ones. */
+  readonly userTurns: boolean
+  /** Announce every automatic goal round, instead of only the goal's final state. */
+  readonly goalRounds: boolean
+  /** Announce the closing turn after a subagent wakes the main session. */
+  readonly subagentWake: boolean
+  /** Announce the closing turn after a scheduled task or background job wakes it. */
+  readonly backgroundWake: boolean
+  /** Announce the closing turn after a teammate message wakes the main session. */
+  readonly teamWake: boolean
+  /** Announce the closing turn after an external event (a webhook delivery) wakes it. */
+  readonly webhookWake: boolean
+  /** Announce the closing turn after a plugin run wakes it. */
+  readonly pluginWake: boolean
+  /** Announce the closing turn for any other automatic producer DSH does not classify. */
+  readonly otherWake: boolean
   readonly completed: NotificationRule
   readonly interrupted: NotificationRule
   readonly question: NotificationRule
