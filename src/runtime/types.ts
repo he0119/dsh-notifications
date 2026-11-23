@@ -20,6 +20,14 @@ export interface NotificationSettings {
   readonly subagentWake: boolean
   /** Announce the closing turn after a scheduled task or background job wakes it. */
   readonly backgroundWake: boolean
+  /** Announce the closing turn after a teammate message wakes the main session. */
+  readonly teamWake: boolean
+  /** Announce the closing turn after an external event (a webhook delivery) wakes it. */
+  readonly webhookWake: boolean
+  /** Announce the closing turn after a plugin run wakes it. */
+  readonly pluginWake: boolean
+  /** Announce the closing turn for any other automatic producer DSH does not classify. */
+  readonly otherWake: boolean
   readonly completed: NotificationRule
   readonly interrupted: NotificationRule
   readonly question: NotificationRule

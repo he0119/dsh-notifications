@@ -23,7 +23,8 @@ Status: implemented
 事件，若不跳过，它们落进 `sourceOf` 的 default 会被当成用户主动，把回合开头记录的 `goal` / `schedule` /
 `subagent` 来源覆盖掉（user 优先级最高），于是 goal 每轮照样提醒、`goalRounds` 关了也不起作用。
 白名单是逐个列举而不是「凡带 `form` 字段就跳过」，因为 `goal`、`tool-goal`、`user-approval` 这些真实
-来源同样带 `form`；反过来未列举的未知来源仍按用户处理，避免悄悄漏掉提醒。
+来源同样带 `form`。未列举的未知来源当时按用户处理，这一处理已被
+[每个自动唤醒来源各有开关](2026-11-23-every-wake-source-has-an-option.md)取代。
 
 goal 真正的终态由 `goal/change` 事件发布：`complete` 报完成，`block` 报中止。终态是权威结论，
 `goalNotices` 里记下它是终态（`terminal`），此后同一个 goal id、同类型的末轮一律抑制，不管相隔多久；

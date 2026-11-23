@@ -23,7 +23,10 @@ export function apply(ctx: Context, config: NotificationsConfig): void {
   installNotificationWorkerRoute(ctx)
   const source = createNotificationHost(ctx, () => {
     const settings = readNotificationsConfig(config)
-    return { goalRounds: settings.goalRounds, subagentWake: settings.subagentWake, backgroundWake: settings.backgroundWake }
+    return {
+      goalRounds: settings.goalRounds, subagentWake: settings.subagentWake, backgroundWake: settings.backgroundWake,
+      teamWake: settings.teamWake, webhookWake: settings.webhookWake, pluginWake: settings.pluginWake, otherWake: settings.otherWake,
+    }
   })
   const desktop = createDesktopNotificationHost({
     createCarrier: onActivate => createWindowsNotifications({ activateDesktop: () => activateDesktopApp(), onActivate }, { onWarning: message => ctx.logger.warn('Windows notification: ' + message) }),

@@ -50,7 +50,7 @@ class AudioFixture {
   createGain() { return { gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() } }
   createOscillator() { return { type: '', frequency: { setValueAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn(), onended: null, start: () => AudioFixture.count++, stop: vi.fn() } }
 }
-const preferences: NotificationSettings = { desktop: true, volume: 80, goalRounds: false, subagentWake: false, backgroundWake: false, completed: { enabled: true, sound: 'chime' }, interrupted: { enabled: true, sound: 'alert' }, question: { enabled: true, sound: 'soft' }, approval: { enabled: true, sound: 'double' } }
+const preferences: NotificationSettings = { desktop: true, volume: 80, goalRounds: false, subagentWake: false, backgroundWake: false, teamWake: false, webhookWake: false, pluginWake: false, otherWake: false, completed: { enabled: true, sound: 'chime' }, interrupted: { enabled: true, sound: 'alert' }, question: { enabled: true, sound: 'soft' }, approval: { enabled: true, sound: 'double' } }
 const event: NotificationEvent = { id: 'completed:1', sessionId: 'session-1', kind: 'completed' }
 const copy = { title: (kind: string) => kind, body: (kind: string) => kind + ' body', testTitle: 'Test', testBody: 'Test body' }
 function fixture(settings: NotificationSettings = preferences) {
@@ -139,7 +139,7 @@ it('edits each category without autosaving and performs permission or preview on
   const controls = settingsFixture()
   render(<NotificationsSettings {...controls.props} />)
   expect(screen.getAllByRole('switch')).toHaveLength(5)
-  expect(screen.getAllByRole('checkbox')).toHaveLength(3)
+  expect(screen.getAllByRole('checkbox')).toHaveLength(7)
   expect(controls.requestPermission).not.toHaveBeenCalled(); expect(controls.preview).not.toHaveBeenCalled(); expect(controls.test).not.toHaveBeenCalled()
   fireEvent.change(screen.getByRole('combobox', { name: 'Sound for Reply needed' }), { target: { value: 'alert' } })
   fireEvent.click(screen.getByRole('switch', { name: en.approval }))
@@ -232,6 +232,10 @@ it('registers the plugin-page config card and writes native paths only against t
       { op: 'set', path: ['goalRounds'], value: false },
       { op: 'set', path: ['subagentWake'], value: false },
       { op: 'set', path: ['backgroundWake'], value: false },
+      { op: 'set', path: ['teamWake'], value: false },
+      { op: 'set', path: ['webhookWake'], value: false },
+      { op: 'set', path: ['pluginWake'], value: false },
+      { op: 'set', path: ['otherWake'], value: false },
       { op: 'set', path: ['volume'], value: 80 },
       { op: 'set', path: ['completed'], value: { enabled: true, sound: 'chime' } },
       { op: 'set', path: ['interrupted'], value: { enabled: true, sound: 'alert' } },

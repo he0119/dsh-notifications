@@ -8,6 +8,9 @@ import { LlmAdapter, LlmError, createUserMessage, type GenerateOptions, type Str
 import { createNotificationHost, type NotificationHostOptions } from '../src/host.ts'
 import type { NotificationFrame } from '../src/runtime/types.ts'
 
+/** Every wake option off; a case only names the family it turns on. */
+const NO_WAKES: NotificationHostOptions = { goalRounds: false, subagentWake: false, backgroundWake: false, teamWake: false, webhookWake: false, pluginWake: false, otherWake: false }
+
 function frameOf(result: IteratorResult<NotificationFrame>): NotificationFrame {
   if (result.done) throw new Error('Notification stream ended before its next frame')
   return result.value
@@ -276,7 +279,7 @@ it('announces a completed user turn but stays silent for goal rounds and backgro
 })
 
 it('honours the goalRounds, subagentWake and backgroundWake options independently', async t => {
-  const options = { goalRounds: false, subagentWake: false, backgroundWake: false }
+  const options = { ...NO_WAKES }
   const { ctx, stream } = await fixture(t, false, () => options)
   await stream.next()
   const goal = ctx.sessions.create(SessionId('option-goal'))
@@ -296,6 +299,41 @@ it('honours the goalRounds, subagentWake and backgroundWake options independentl
   sourceTurn(schedule, 2, 'schedule')
   schedule.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
   expect(frameOf(await second).events).toMatchObject([{ sessionId: schedule.id, kind: 'completed' }])
+})
+
+it('gates every other automatic wake and keeps a retry as user work', async t => {
+  // DSH 记录的非人来源不止 goal、子代理、后台三种：团队消息、外部事件（webhook）、插件触发，
+  // 以及插件自定义的未知来源，各有自己的开关；重试是用户请求的延续，仍按用户发起处理。
+  const options = { ...NO_WAKES }
+  const { ctx, stream } = await fixture(t, false, () => options)
+  await stream.next()
+  const team = ctx.sessions.create(SessionId('wake-team'))
+  const hook = ctx.sessions.create(SessionId('wake-webhook'))
+  const plugin = ctx.sessions.create(SessionId('wake-plugin'))
+  const custom = ctx.sessions.create(SessionId('wake-custom'))
+  const retry = ctx.sessions.create(SessionId('wake-retry'))
+  const complete = (session: typeof team, turn: number, kind: string) => {
+    sourceTurn(session, turn, kind)
+    session.append('turn/end', { turn, reason: { kind: 'completed' } })
+  }
+  const off = stream.next()
+  complete(team, 1, 'team-message'); complete(hook, 1, 'webhook'); complete(plugin, 1, 'cordis-host-runner')
+  complete(custom, 1, 'plugin:custom'); complete(retry, 1, 'retry')
+  // 四个自动来源都静音，只有重试那一轮算用户发起。
+  expect(frameOf(await off).events).toMatchObject([{ sessionId: retry.id, kind: 'completed' }])
+  // 逐个打开：每打开一族，只有它那一轮会提醒。
+  const families = [
+    { option: 'teamWake', kind: 'team-message', session: team },
+    { option: 'webhookWake', kind: 'webhook', session: hook },
+    { option: 'pluginWake', kind: 'cordis-host-runner', session: plugin },
+    { option: 'otherWake', kind: 'plugin:custom', session: custom },
+  ] as const
+  for (const [index, family] of families.entries()) {
+    options[family.option] = true
+    const next = stream.next()
+    complete(family.session, index + 2, family.kind)
+    expect(frameOf(await next).events).toMatchObject([{ sessionId: family.session.id, kind: 'completed' }])
+  }
 })
 
 it('still announces a failure from a goal round or background wake', async t => {
@@ -353,7 +391,7 @@ it('does not let injected context turn a goal round into a user turn when goalRo
 })
 
 it('announces a goal round when goalRounds is on even with injected context', async t => {
-  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: true, subagentWake: false, backgroundWake: false }))
+  const { ctx, stream } = await fixture(t, false, () => ({ ...NO_WAKES, goalRounds: true }))
   await stream.next()
   const session = ctx.sessions.create(SessionId('injected-context-goal-on'))
   const next = stream.next()
@@ -369,7 +407,7 @@ it('keeps a tool-jobs wake silent when backgroundWake is off', async t => {
   // DSH 的 tool-jobs 在空闲 owner 上用 followup 投递完成通知，这会真正开启一个回合；
   // 这条消息和「注入到进行中回合」的 tool-jobs 用同一个 source.kind，必须靠「是不是回合
   // 第一条来源」区分：唤醒回合里它是唯一来源，应受 backgroundWake 控制。
-  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: false, subagentWake: false, backgroundWake: false }))
+  const { ctx, stream } = await fixture(t, false, () => NO_WAKES)
   await stream.next()
   const session = ctx.sessions.create(SessionId('tool-jobs-wake-off'))
   const sentinel = ctx.sessions.create(SessionId('tool-jobs-wake-sentinel'))
@@ -382,7 +420,7 @@ it('keeps a tool-jobs wake silent when backgroundWake is off', async t => {
 })
 
 it('announces a tool-jobs wake when backgroundWake is on', async t => {
-  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: false, subagentWake: false, backgroundWake: true }))
+  const { ctx, stream } = await fixture(t, false, () => ({ ...NO_WAKES, backgroundWake: true }))
   await stream.next()
   const session = ctx.sessions.create(SessionId('tool-jobs-wake-on'))
   const next = stream.next()
@@ -409,7 +447,7 @@ it('still ignores a tool-jobs notice injected into a goal round with goalRounds 
 it('lets a real goal trigger override a tool-jobs notice that arrived first in the turn', async t => {
   // DSH 先认领 next-step 再认领 next-turn，注入的 tool-jobs 可能排在 goal 触发消息前；
   // 它标了 weak，不能被当成后台唤醒，后到的 goal 要能覆盖它。
-  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: false, subagentWake: false, backgroundWake: true }))
+  const { ctx, stream } = await fixture(t, false, () => ({ ...NO_WAKES, backgroundWake: true }))
   await stream.next()
   const session = ctx.sessions.create(SessionId('tool-jobs-before-goal'))
   const sentinel = ctx.sessions.create(SessionId('tool-jobs-before-goal-sentinel'))
@@ -424,7 +462,7 @@ it('lets a real goal trigger override a tool-jobs notice that arrived first in t
 })
 
 it('announces a goal terminal change once and does not double-announce its final round', async t => {
-  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: true, subagentWake: false, backgroundWake: false }))
+  const { ctx, stream } = await fixture(t, false, () => ({ ...NO_WAKES, goalRounds: true }))
   await stream.next()
   const session = ctx.sessions.create(SessionId('goal-terminal'))
   const next = stream.next()
@@ -440,7 +478,7 @@ it('does not double-announce a goal terminal and its final round beyond the dedu
   const now = { value: 1_000_000 }
   vi.spyOn(Date, 'now').mockImplementation(() => now.value)
   t.onTestFinished(() => vi.restoreAllMocks())
-  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: true, subagentWake: false, backgroundWake: false }))
+  const { ctx, stream } = await fixture(t, false, () => ({ ...NO_WAKES, goalRounds: true }))
   await stream.next()
   const session = ctx.sessions.create(SessionId('goal-terminal-far'))
   const sentinel = ctx.sessions.create(SessionId('goal-terminal-far-sentinel'))
@@ -462,7 +500,7 @@ it('does not double-announce a goal completion whose final round carries a tool-
   // wrap-up context appended into the same round, then turn/end. The wrap-up
   // must stay a goal source so it cannot be mistaken for user work and bypass
   // the terminal's dedupe entry.
-  const { ctx, stream } = await fixture(t, false, () => ({ goalRounds: true, subagentWake: false, backgroundWake: false }))
+  const { ctx, stream } = await fixture(t, false, () => ({ ...NO_WAKES, goalRounds: true }))
   await stream.next()
   const session = ctx.sessions.create(SessionId('goal-tool-goal'))
   const next = stream.next()

@@ -14,7 +14,7 @@ export interface NotificationHost extends NotificationReaders {
 }
 
 /** Who caused one turn; only user turns announce completion by default. */
-type TurnSource = 'user' | 'goal' | 'subagent' | 'background'
+type TurnSource = 'user' | 'goal' | 'subagent' | 'background' | 'team' | 'webhook' | 'plugin' | 'other'
 interface TurnState { readonly turn: number | undefined; terminal: boolean; pendingError?: string }
 interface SourceState { readonly source: TurnSource; readonly goalId?: string; readonly weak: boolean; at: number }
 /** terminal = goal/change; round = a goal-owned turn/end. One terminal outcome is announced once. */
@@ -24,6 +24,19 @@ export interface NotificationHostOptions {
   readonly goalRounds: boolean
   readonly subagentWake: boolean
   readonly backgroundWake: boolean
+  readonly teamWake: boolean
+  readonly webhookWake: boolean
+  readonly pluginWake: boolean
+  readonly otherWake: boolean
+}
+/** The option that gates each automatic trigger family; user turns never consult this table. */
+const WAKE_OPTIONS: Record<Exclude<TurnSource, 'user' | 'goal'>, 'subagentWake' | 'backgroundWake' | 'teamWake' | 'webhookWake' | 'pluginWake' | 'otherWake'> = {
+  subagent: 'subagentWake',
+  background: 'backgroundWake',
+  team: 'teamWake',
+  webhook: 'webhookWake',
+  plugin: 'pluginWake',
+  other: 'otherWake',
 }
 /** Two goal-owned outcomes of the same kind within this window are one announcement. */
 const GOAL_DEDUPE_MS = 5000
@@ -76,7 +89,7 @@ function isWeakSource(value: unknown): boolean {
   return typeof value === 'object' && value !== null && 'kind' in value && value.kind === 'tool-jobs'
 }
 
-/** Merge-extensible message sources: `user` wins, goal rounds and background wakes are distinct. */
+/** Merge-extensible message sources: `user` wins; every automatic producer keeps its own family. */
 function sourceOf(value: unknown): TurnSource | undefined {
   if (typeof value !== 'object' || value === null || !('kind' in value) || typeof value.kind !== 'string') return 'user'
   const kind = value.kind
@@ -86,7 +99,14 @@ function sourceOf(value: unknown): TurnSource | undefined {
     case 'goal': case 'tool-goal': return 'goal'
     case 'subagent-settled': case 'agent-message': return 'subagent'
     case 'schedule': case 'tool-jobs': return 'background' // Scheduled and job wakeups are background work.
-    default: return 'user' // Unknown producers are treated as user work so nothing is silently missed.
+    // Every remaining producer DSH records for a turn-opening message has its own family, so an
+    // automatic turn never poses as user work: teammates, external events, plugin runs, and
+    // anything a future plugin invents.
+    case 'team-message': return 'team'
+    case 'webhook': return 'webhook'
+    case 'cordis-host-runner': return 'plugin'
+    case 'retry': return 'user' // A retried request continues work the user asked for.
+    default: return 'other'
   }
 }
 
@@ -96,7 +116,7 @@ function sourceOf(value: unknown): TurnSource | undefined {
  * and background wakes only when their options allow it. Goal terminal changes announce once,
  * even when the final round also announced its completion near the same time.
  */
-export function createNotificationHost(ctx: Context, readOptions: () => NotificationHostOptions = () => ({ goalRounds: false, subagentWake: false, backgroundWake: false })): NotificationHost {
+export function createNotificationHost(ctx: Context, readOptions: () => NotificationHostOptions = () => ({ goalRounds: false, subagentWake: false, backgroundWake: false, teamWake: false, webhookWake: false, pluginWake: false, otherWake: false })): NotificationHost {
   const feed = createNotificationFeed()
   let turns = new WeakMap<Session, TurnState>()
   let sources = new WeakMap<Session, SourceState>()
@@ -177,9 +197,8 @@ export function createNotificationHost(ctx: Context, readOptions: () => Notifica
         return
       }
       if (trigger === undefined || trigger.source === 'user') publish(session, value)
-      else if (goalRound) { if (readOptions().goalRounds) announceGoal(session, value, trigger.goalId) }
-      else if (trigger.source === 'subagent') { if (readOptions().subagentWake) publish(session, value) }
-      else if (readOptions().backgroundWake) publish(session, value)
+      else if (trigger.source === 'goal') { if (readOptions().goalRounds) announceGoal(session, value, trigger.goalId) }
+      else if (readOptions()[WAKE_OPTIONS[trigger.source]]) publish(session, value)
     }),
     ctx.on('agent/error', ({ agent, turn, error }) => {
       if (disposed) return
