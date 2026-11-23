@@ -17,7 +17,6 @@ import type {} from './logic/slots.ts'
 import { createDesktopNotificationClient } from './logic/desktop-client.ts'
 import { LOCALE_NS } from '../constants.ts'
 
-export const clientInject = ['uiSession', 'uiWorkspace', 'sessions', 'remote', 'locale']
 interface QuestionView { readonly kind: string; readonly key: string; readonly sessionId: SessionId; readonly questions: readonly { readonly intent?: { readonly kind: string } }[]; readonly review: readonly object[] | undefined; getSnapshot(): { readonly channel: 'waterfall' | 'rpc' | 'none'; readonly closed: boolean }; subscribe(listener: () => void): () => void }
 interface ApprovalView { readonly kind: 'approval'; readonly key: string; readonly sessionId: SessionId; readonly answerable: boolean }
 interface PendingView { id: string; sessionId: SessionId; kind: NotificationKind; ready(): boolean; subscribe?: (listener: () => void) => () => void }
@@ -101,21 +100,19 @@ export function installNotifications(ctx: Context, preferences: () => Notificati
   }
   ctx.effect(() => () => client.dispose())
   ctx.effect(() => {
-    const source = ctx.uiSession.sessionStatus
+    const source = ctx.uiSession.pendingInteractions
     let baseline = true
     const sync = (): void => {
       const snapshot = source.getSnapshot()
       for (const [id, binding] of bindings) {
-        if (snapshot.get(id)?.pendingInteraction !== undefined) continue
+        if (snapshot.get(id) !== undefined) continue
         binding.off(); client.dismiss(binding.view.id); bindings.delete(id)
       }
-      for (const [id, status] of snapshot) {
-        const pending = status.pendingInteraction
-        if (pending === undefined) continue
+      for (const [id, pending] of snapshot) {
         const existing = bindings.get(id)
-        if (existing?.pending === pending) { consider(existing); continue }
-        const view = pendingView(pending)
+        if (existing !== undefined && existing.pending === pending) { consider(existing); continue }
         if (existing !== undefined) { existing.off(); client.dismiss(existing.view.id); bindings.delete(id) }
+        const view = pendingView(pending)
         if (view === undefined) continue
         const announced = baseline || (existing?.view.id === view.id && existing.announced) || recent.has(view.id)
         if (baseline) remember(view.id)
