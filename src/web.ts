@@ -6,7 +6,7 @@ import { NOTIFICATION_WORKER_PATH, NOTIFICATION_WORKER_SCOPE, NOTIFICATION_WORKE
 /** Follow the public web carrier without making notification delivery depend on Remote. */
 export function installNotificationWorkerRoute(ctx: Context): void {
   ctx.inject(['webServer'], scope => {
-    scope.effect(() => scope.webServer.register({ kind: 'exact', path: NOTIFICATION_WORKER_PATH, handler(_request, response) {
+    scope.effect(() => scope.webServer.register({ kind: 'exact', path: NOTIFICATION_WORKER_PATH, auth: 'anonymous', handler(_request, response) {
       response.statusCode = 200
       response.setHeader('Content-Type', 'application/javascript; charset=utf-8')
       response.setHeader('Cache-Control', 'no-cache')

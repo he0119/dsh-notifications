@@ -10,7 +10,7 @@ import { useModalLayer } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { SessionId as sessionId } from '@deepseek-ai/dsh-session/types'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { SessionStatus } from '@deepseek-ai/dsh-client-ui-session/client'
+import type { SessionPendingInteraction } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { NotificationDeliveryFrame, NotificationSettings } from '../src/runtime/types.ts'
@@ -25,10 +25,10 @@ const preferences: NotificationSettings = { desktop: true, volume: 80, completed
 const frame = (cursor: number, baseline: boolean, ids: string[] = []): NotificationDeliveryFrame => ({ epoch: 'epoch-1', cursor, baseline, events: ids.map(id => ({ id, sessionId: 's1', kind: 'completed' })), settings: preferences })
 const disposers: (() => Promise<void>)[] = []
 function summary(id: string, extra: Partial<SessionSummary> = {}): SessionSummary { return { id: sessionId(id), displayTitle: id, running: false, retainedBy: {}, blank: false, updatedAt: 0, ...extra } }
-async function fixture(initial: ReadonlyMap<SessionId, SessionStatus> = new Map(), rows: SessionSummary[] = [summary('s1')]) {
+async function fixture(initial: ReadonlyMap<SessionId, SessionPendingInteraction> = new Map(), rows: SessionSummary[] = [summary('s1')]) {
   vi.stubGlobal('Notification', Popup); vi.stubGlobal('isSecureContext', true); vi.spyOn(document, 'hasFocus').mockReturnValue(false)
   const ctx = new Context()
-  const statuses = createSnapshotStore<ReadonlyMap<SessionId, SessionStatus>>(initial)
+  const statuses = createSnapshotStore<ReadonlyMap<SessionId, SessionPendingInteraction>>(initial)
   const summaries = createSnapshotStore<SessionListState>({ phase: 'ready', ids: rows.map(row => row.id), byId: Object.fromEntries(rows.map(row => [row.id, row])), projectionsBySession: {} })
   const forbiddenHistory = vi.fn(() => { throw new Error('Notifications must not retain or follow Session history') })
   ctx.provide('sessions', { list: summaries, retain: forbiddenHistory } as Context['sessions'])
@@ -51,7 +51,7 @@ async function fixture(initial: ReadonlyMap<SessionId, SessionStatus> = new Map(
     return Object.assign(iterator, { send: (_value: never) => {}, end: () => {}, dispose: () => { cancelled = true; wake?.(undefined) } })
   }
   const push = (value: NotificationDeliveryFrame) => { if (wake) { const next = wake; wake = undefined; next(value) } else queued.push(value) }
-  ctx.provide('uiSession', { sessionStatus: statuses, adapter: { current: createSnapshotStore({ key: undefined, target: undefined }) } } as Context['uiSession'])
+  ctx.provide('uiSession', { pendingInteractions: statuses, adapter: { current: createSnapshotStore({ key: undefined, target: undefined }) } } as Context['uiSession'])
   ctx.provide('uiWorkspace', { openSession: vi.fn() } as Context['uiWorkspace'])
   ctx.provide('locale', { register: () => () => {}, bind: () => (key: string) => key } as Context['locale'])
   ctx.provide('remote', { dshNotifications: { events } } as Context['remote'])
@@ -80,9 +80,9 @@ it('seeds the outcome baseline, notifies only new frames and aborts the owned st
 it('does not infer success from idle and does not replay existing interactions', async () => {
   const id = 's1' as SessionId
   const old = { kind: 'approval', key: 'old', sessionId: id, answerable: true }
-  const test = await fixture(new Map([[id, { running: false, completionUnread: true, pendingInteraction: old }]]))
+  const test = await fixture(new Map([[id, old]]))
   test.push(frame(0, true)); await new Promise(resolve => setTimeout(resolve, 0))
-  test.statuses.set(new Map([[id, { running: false, completionUnread: true, pendingInteraction: undefined }]]))
+  test.statuses.set(new Map())
   test.push({ ...frame(1, false), events: [{ id: 'raw-asked', sessionId: id, kind: 'question' }] })
   await new Promise(resolve => setTimeout(resolve, 0))
   expect(Popup.instances).toHaveLength(0)
@@ -93,7 +93,7 @@ it('subscribes to questions before reading their channel and notifies once when 
   let snapshot = { channel: 'none', closed: false, state: 'open' }
   const question = { kind: 'question', key: 'question-1', sessionId: id, questions: [{}], review: undefined,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }, getSnapshot: () => snapshot }
-  test.statuses.set(new Map([[id, { running: true, completionUnread: false, pendingInteraction: question }]]))
+  test.statuses.set(new Map([[id, question]]))
   expect(listeners.size).toBe(1)
   expect(Popup.instances).toHaveLength(0)
   snapshot = { channel: 'waterfall', closed: false, state: 'open' }; listeners.forEach(listener => listener())
@@ -111,18 +111,18 @@ it('drops a cancelled question and classifies approval intent without reading to
   let closed = false
   const makeQuestion = (key: string, kind: string) => ({ kind: 'plan-review', key, sessionId: id, questions: [{ intent: { kind } }], review: undefined,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }, getSnapshot: () => ({ channel: closed ? 'none' : 'rpc', closed }) })
-  test.statuses.set(new Map([[id, { running: true, completionUnread: false, pendingInteraction: makeQuestion('cancelled', 'plan-review') }]]))
+  test.statuses.set(new Map([[id, makeQuestion('cancelled', 'plan-review')]]))
   closed = true; listeners.forEach(listener => listener())
   await new Promise(resolve => setTimeout(resolve, 0)); expect(Popup.instances).toHaveLength(0)
   closed = false
-  test.statuses.set(new Map([[id, { running: true, completionUnread: false, pendingInteraction: makeQuestion('approval-question', 'approval') }]]))
+  test.statuses.set(new Map([[id, makeQuestion('approval-question', 'approval')]]))
   await vi.waitFor(() => expect(Popup.instances).toHaveLength(1))
   expect(Popup.instances[0]!.title).toBe('approvalTitle · s1')
   const approval = { kind: 'approval', key: 'human', sessionId: id, answerable: false }
-  test.statuses.set(new Map([[id, { running: true, completionUnread: false, pendingInteraction: approval }]]))
+  test.statuses.set(new Map([[id, approval]]))
   await new Promise(resolve => setTimeout(resolve, 0)); expect(Popup.instances).toHaveLength(1)
   approval.answerable = true
-  test.statuses.set(new Map([[id, { running: true, completionUnread: false, pendingInteraction: approval }]]))
+  test.statuses.set(new Map([[id, approval]]))
   await vi.waitFor(() => expect(Popup.instances).toHaveLength(2))
   expect(Popup.instances[1]!.title).toBe('approvalTitle · s1')
 })
@@ -132,14 +132,14 @@ it('does not replay an active question after a thousand outcome alerts evict rec
   const id = 's1' as SessionId, listeners = new Set<() => void>()
   const question = { kind: 'question', key: 'long-question', sessionId: id, questions: [{}], review: undefined,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }, getSnapshot: () => ({ channel: 'rpc', closed: false }) }
-  test.statuses.set(new Map([[id, { running: true, completionUnread: false, pendingInteraction: question }]]))
+  test.statuses.set(new Map([[id, question]]))
   await vi.waitFor(() => expect(Popup.instances).toHaveLength(1))
   for (let start = 0; start < 1000; start += 64) test.push(frame(Math.min(start + 64, 1000), false, Array.from({ length: Math.min(64, 1000 - start) }, (_, offset) => 'outcome-' + (start + offset))))
   await vi.waitFor(() => expect(Popup.instances).toHaveLength(1001))
   listeners.forEach(listener => listener())
   await new Promise(resolve => setTimeout(resolve, 0))
   expect(Popup.instances.filter(popup => popup.title === 'questionTitle · s1')).toHaveLength(1)
-  test.statuses.set(new Map([[id, { running: true, completionUnread: false, pendingInteraction: { ...question } }]]))
+  test.statuses.set(new Map([[id, { ...question }]]))
   await new Promise(resolve => setTimeout(resolve, 0))
   expect(Popup.instances.filter(popup => popup.title === 'questionTitle · s1')).toHaveLength(1)
 })
@@ -188,9 +188,12 @@ async function nativeRouteFixture() {
   ctx.provide('workspaces', { list: createSnapshotStore({ phase: 'loading', items: [], archivedSessionIds: [], pinnedSessionIds: [] }) } as never)
   ctx.provide('layout', { selectPanel: () => {}, beginNavigation: () => new AbortController().signal } as never)
   ctx.provide('shortcuts', { register: () => () => {} } as never)
-  // rc.1 registers context-menu contributions during apply; menu rendering is outside this routing fixture.
+  // The workspace client registers context-menu contributions during apply; menu rendering is outside this routing fixture.
   ctx.provide('contextMenus', { register: () => () => {} } as never)
-  controller.apply(ctx); await ctx.sessions.refresh(); new ui.UiSession(ctx, ctx.sessions); workspace.apply(ctx)
+  controller.apply(ctx); await ctx.sessions.refresh(); new ui.UiSession(ctx, ctx.sessions)
+  ctx.provide('uiSession.sessionStatus', { getSnapshot: () => new Map(), subscribe: () => () => {} } as never)
+  Object.assign(ctx.remote, { directoryPicker: {} })
+  workspace.apply(ctx, { recentViewLimit: { get: () => 10, getSnapshot: () => 10, subscribe: () => () => {} } } as never)
   const queued: NotificationDeliveryFrame[] = []; let wake: ((frame: NotificationDeliveryFrame | undefined) => void) | undefined
   const events = (signal: AbortSignal) => {
     const iterator = (async function* () { while (!signal.aborted) { const next = queued.shift() ?? await new Promise<NotificationDeliveryFrame | undefined>(resolve => { wake = resolve; signal.addEventListener('abort', () => resolve(undefined), { once: true }) }); if (!next || signal.aborted) return; yield next } })()
@@ -264,7 +267,7 @@ it.each(['question', 'plan-review', 'approval'])('does not popup or play %s requ
   const child = summary('child', { origin: 'subagent', parentId: sessionId('s1') }), test = await fixture(new Map(), [summary('s1'), child])
   test.push({ ...frame(0, true), settings: audiblePreferences }); await new Promise(resolve => setTimeout(resolve, 0))
   const pending = kind === 'approval' ? { kind, key: 'child-approval', sessionId: child.id, answerable: true } : question(child.id, 'child-question', kind)
-  test.statuses.set(new Map([[child.id, { running: true, completionUnread: false, pendingInteraction: pending }]]))
+  test.statuses.set(new Map([[child.id, pending]]))
   await new Promise(resolve => setTimeout(resolve, 0))
   expect(Popup.instances).toHaveLength(0); expect(AudibleContext.played).toBe(0); expect(test.forbiddenHistory).not.toHaveBeenCalled()
 })
@@ -272,7 +275,7 @@ it('waits for unknown pending identity and notifies an independent fork only onc
   AudibleContext.played = 0; vi.stubGlobal('AudioContext', AudibleContext)
   const test = await fixture(new Map(), []), id = sessionId('fork-root')
   test.push({ ...frame(0, true), settings: audiblePreferences }); await new Promise(resolve => setTimeout(resolve, 0))
-  test.statuses.set(new Map([[id, { running: true, completionUnread: false, pendingInteraction: question(id, 'unknown-root') }]]))
+  test.statuses.set(new Map([[id, question(id, 'unknown-root')]]))
   await new Promise(resolve => setTimeout(resolve, 0)); expect(Popup.instances).toHaveLength(0); expect(AudibleContext.played).toBe(0)
   updateSummaries(test.summaries, [summary(id, { parentId: sessionId('fork-source') })])
   await vi.waitFor(() => expect(Popup.instances).toHaveLength(1)); expect(AudibleContext.played).toBe(1)
@@ -283,7 +286,7 @@ it('drops an unknown pending request when its late metadata identifies a child',
   AudibleContext.played = 0; vi.stubGlobal('AudioContext', AudibleContext)
   const test = await fixture(new Map(), []), id = sessionId('late-child')
   test.push({ ...frame(0, true), settings: audiblePreferences }); await new Promise(resolve => setTimeout(resolve, 0))
-  test.statuses.set(new Map([[id, { running: true, completionUnread: false, pendingInteraction: question(id, 'pending-child') }]]))
+  test.statuses.set(new Map([[id, question(id, 'pending-child')]]))
   await new Promise(resolve => setTimeout(resolve, 0)); expect(Popup.instances).toHaveLength(0)
   updateSummaries(test.summaries, [summary(id, { origin: 'subagent' })]); await new Promise(resolve => setTimeout(resolve, 0))
   expect(Popup.instances).toHaveLength(0); expect(AudibleContext.played).toBe(0)
@@ -317,7 +320,7 @@ it('drops queued child outcomes and rechecks pending root identity at dispatch t
   updateSummaries(test.summaries, [summary(id, { origin: 'subagent' })])
   await new Promise(resolve => setTimeout(resolve, 0)); expect(Popup.instances).toHaveLength(0); expect(AudibleContext.played).toBe(0)
   updateSummaries(test.summaries, [summary(id)])
-  test.statuses.set(new Map([[id, { running: true, completionUnread: false, pendingInteraction: question(id, 'changing-identity') }]]))
+  test.statuses.set(new Map([[id, question(id, 'changing-identity')]]))
   updateSummaries(test.summaries, [summary(id, { origin: 'subagent' })])
   await new Promise(resolve => setTimeout(resolve, 0)); expect(Popup.instances).toHaveLength(0); expect(AudibleContext.played).toBe(0)
 })

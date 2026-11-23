@@ -7,10 +7,11 @@
 
 - Node 22.19 或更新（仓库在 Node 24 上开发）。
 - 依赖用 **pnpm** 安装（`packageManager` 固定版本，锁文件是 `pnpm-lock.yaml`）；发布到 npm 用的是 npm 自己的 CLI。
-- 开发时对照的 DSH 版本是 **0.2.2-rc.2**（`package.json` 的 `devDependencies` 全是这个版本）。
-- 对外声明的版本要求与 dsh-session-manager 一致：`engines.dsh` 与所有 `@deepseek-ai/dsh*` 的 peer 区间都写
-  `^0.2.0-rc.1`。DSH 用**自己的版本**判断兼容，并且让预发布版参与区间匹配，所以 0.2.x 的 rc 与正式版都算满足；
-  `engines.dsh` 存在时 peer 区间不参与兼容判断，只影响 npm 的安装提示。
+- 开发时对照的 DSH 版本是 **0.2.3-alpha.2**（`package.json` 的 `devDependencies` 全是这个版本）。
+- 对外声明的版本要求：`engines.dsh` 写 `^0.2.3-alpha.2`，所有 `@deepseek-ai/dsh*` 的 peer 区间也用这一版。
+  DSH 用**自己的版本**判断兼容，并且让预发布版参与区间匹配；`engines.dsh` 存在时 peer 区间不参与兼容判断，
+  只影响 npm 的安装提示。浏览器端从这一版起只读 `ctx.uiSession.pendingInteractions`，0.2.2 没有这个成员，
+  所以不再声明兼容更早的版本。
 
 ## 常用命令
 
@@ -53,7 +54,7 @@ pnpm run pack:release # 构建并打包到 artifacts/
   koffi 是 `@deepseek-ai/dsh-fs-local` 的原生绑定，随测试用的 DSH 开发依赖带进来；本包不 import 它，
   但安装过程得过这一关。
 - `minimumReleaseAgeExclude`：pnpm 11 默认不让发布不满 24 小时的版本进入安装结果，`--frozen-lockfile`
-  也会逐条验。本包跟着 DSH 的 `0.2.2-rc.2` 这一代走，而它发布当天就得装上，所以那一代每条都按版本
+  也会逐条验。本包跟着 DSH 的 `0.2.3-alpha.2` 这一代走，而它发布当天就得装上，所以那一代每条都按版本
   精确放行；过了 24 小时窗口，整段可以删掉。
 
 `src/runtime/generated/` 和 `lib/` 都是产物，已在 `.gitignore` 里。`generate` 会调用 `@deepseek-ai/dsh-typert-generator`，用本包的包名分析 `src/runtime/index.ts` 里的 `@Remote` 方法，生成宿主要用的一份、浏览器用的一份。
@@ -76,7 +77,7 @@ pnpm run pack:release # 构建并打包到 artifacts/
 | `src/windows/launcher.ts` | 协议处理器那个小程序（`activate.exe`）的源码与校验 |
 | `src/windows/scripts.ts` | PowerShell 与注册表脚本，以及协议名、注册表键等常量 |
 | `src/service-worker.ts` | Service Worker 脚本正文与路径常量：宿主挂路由、浏览器注册都读这一份 |
-| `src/web.ts` | 宿主把 Service Worker 挂在 `/dsh-notifications/sw.js` |
+| `src/web.ts` | 宿主把 Service Worker 挂在 `/dsh-notifications/sw.js`，并注册为匿名路由：脚本不含秘密，页面要在鉴权完成前注册它 |
 | `src/runtime/index.ts` | `@Remote` 方法：`events`、`activateDesktop`、`showDesktop`、`closeDesktop`、`acknowledgeDesktop`、`desktopEvents` |
 | `src/runtime/types.ts` | 宿主与浏览器之间传的数据（不含消息历史，也不含错误详情） |
 | `src/client/index.ts` | 浏览器入口（薄）：装样式、挂载本包的接口、注册插件页里那张配置卡 |
