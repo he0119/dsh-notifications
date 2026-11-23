@@ -114,23 +114,11 @@
   cursor: inherit;
 }
 
-.groupText {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
 .groupTitle {
+  min-width: 0;
   color: var(--dsw-alias-label-primary, inherit);
   font-size: 13px;
   line-height: 20px;
-}
-
-.groupNote {
-  color: var(--dsw-alias-label-tertiary, inherit);
-  font-size: 11px;
-  line-height: 17px;
-  overflow-wrap: anywhere;
 }
 
 /* 组之后的第一行仍然要一条分隔线（原来是 .row + .row，这里被 fieldset 打断了）。 */
