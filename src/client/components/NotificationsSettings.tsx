@@ -1,8 +1,8 @@
 import { normalizeNotificationPreferences } from '../logic/preferences.ts'
 /** Native revision-fenced settings and user-activated notification checks. */
-import { useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
-import { Button, Checkbox, SettingsForm } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, SettingsForm, StateDot, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
@@ -21,7 +21,12 @@ export interface NotificationForm extends ObservableSnapshot<ConfigFormSnapshot<
 export type NotificationSettingsProps = PropsRuntime<'plugins.bundle.config'> & InjectFace<NotificationSettingsInjected> & PropsLocale<typeof LOCALE_NS>
 const kinds: readonly NotificationKind[] = ['completed', 'interrupted', 'question', 'approval']
 const sounds: readonly NotificationSound[] = ['none', 'soft', 'double', 'chime', 'alert', 'custom']
-/** Render independent category preferences with one explicit native Save operation. */
+/**
+ * 画这张通知配置卡：一个决定一行，排布与 DSH 设置页一致——左边一句话，右边它的控件。
+ *
+ * 开关用官方 `Switch`：设置页里的开关就是在开/关一项能力，比拿 `Checkbox` 再改它内部排布稳；
+ * 状态颜色交给 `StateDot`，不自己画圆点。其余都是原生控件（select、range），整张卡读起来像宿主页面。
+ */
 export function NotificationsSettings(props: NotificationSettingsProps) {
   // 列表里那一行只画一句摘要，由插件页自己排版；这张表单只在整页时出现。
   if (props.view === 'summary') return null
@@ -45,80 +50,140 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
   }
   const permission = !capability.supported ? 'unsupported' : capability.permission === 'granted' ? 'permissionGranted' : capability.permission === 'denied' ? 'permissionDenied' : 'permissionDefault'
   const audio = capability.audio === 'ready' ? 'audioReady' : capability.audio === 'blocked' ? 'audioBlocked' : capability.audio === 'unsupported' ? 'audioUnsupported' : 'audioUnknown'
-  const testStatusText = capability.testStatus && capability.testStatus !== 'idle'
+  const testStatusText = capability.testStatus !== undefined && capability.testStatus !== 'idle'
     ? t(capability.testStatus === 'pending' ? 'testPending' : capability.testStatus === 'shown' ? 'testShown' : capability.testStatus === 'submitted' ? 'testSubmitted' : capability.testStatus === 'failed' ? 'testFailed' : capability.testStatus === 'closed' ? 'testClosed' : capability.testStatus === 'clicked' ? 'testClicked' : 'testUnknown')
     : undefined
-  // One-line summary; the full diagnostics stay on the title for pointer users.
-  const detail = [
-    t(permission),
+  const hostStale = snapshot.status === 'ready' && snapshot.writable && !hostFieldsReady
+  // 只有真会拦住提醒的才写进说明：首次访问时 audio 还是 unknown，那不是问题。
+  const problems = [
+    capability.permission === 'granted' ? undefined : t(permission),
     !capability.secure ? t('insecure') : undefined,
-    snapshot.status === 'ready' && snapshot.writable && !hostFieldsReady ? t('hostUpdateRequired') : undefined,
+    hostStale ? t('hostUpdateRequired') : undefined,
     capability.failed ? t('desktopFailed') : undefined,
     capability.activationFailed ? t('activationFailed') : undefined,
-    t(audio),
-    testStatusText,
+    capability.audio === 'blocked' || capability.audio === 'unsupported' ? t(audio) : undefined,
+    capability.testStatus === 'failed' ? testStatusText : undefined,
   ].filter((line): line is string => line !== undefined)
-  const hostStale = snapshot.status === 'ready' && snapshot.writable && !hostFieldsReady
-  const attention = capability.permission !== 'granted' || !capability.supported || !capability.secure || capability.failed || capability.audio === 'blocked'
-  // A just-run test's result is the most relevant status, so make it visible too.
-  const summary = testStatusText ?? (hostStale ? t('hostUpdateRequired') : attention ? t('stateAttention') : t('stateOk'))
+  const attention = problems.length > 0
+  // 刚点过「测试通知」时它的结果比「已就绪」更相关，所以先显示它。
+  const headline = capability.testStatus !== 'failed' && testStatusText !== undefined
+    ? testStatusText
+    : attention ? t('stateAttention') : t('stateOk')
   return <section className={styles.root} data-dsh-notifications data-dsh-notifications-settings>
     <SettingsForm labels={{ unavailable: t('unavailable'), readOnly: t('readOnly'), saveFailed: t('saveFailed'), save: t('save'), saving: t('saving') }} state={{ available: value !== undefined, writable: snapshot.writable, dirty: draft !== null, invalid: blocked || conflicted, saving: write === 'saving', failed: write === 'failed' }} onSave={save} onDiscard={discard}>
-      <div className={styles.statusRow} role="status" title={detail.join(' · ')}>
-        <span className={`${styles.stateDot} ${attention ? styles.stateDotAttention : styles.stateDotOk}`} aria-hidden="true" />
-        <span className={styles.statusText}>{summary}</span>
-        <span className={styles.actions} data-notification-permission-actions>
+      <div className={styles.row}>
+        <div className={styles.rowMain} role="status">
+          <p className={styles.rowTitle}><StateDot state={attention ? 'warning' : 'done'} />{headline}</p>
+          {problems.map(line => <p key={line} className={styles.rowHint}>{line}</p>)}
+        </div>
+        <div className={styles.rowActions}>
           <Button size="sm" variant="outline" disabled={!capability.supported || !capability.secure || capability.permission === 'granted'} onClick={() => { void props.requestPermission() }}>{t('allow')}</Button>
           <Button size="sm" variant="ghost" disabled={!capability.supported || !capability.secure} onClick={() => { void props.test(value?.completed.sound ?? 'chime', value?.volume ?? 80) }}>{t('test')}</Button>
-        </span>
+        </div>
       </div>
-      {value !== undefined && <div data-notification-preferences>
-        <div className={styles.field} data-notification-mode>
-          <label htmlFor="dsh-notifications-popup-mode">{t('popupMode')}</label>
-          <select id="dsh-notifications-popup-mode" aria-label={t('popupMode')} value={value.popupMode ?? (value.desktop ? 'unfocused' : 'never')} disabled={blocked} onChange={event => { const popupMode = event.currentTarget.value; if (popupMode === 'never' || popupMode === 'unfocused' || popupMode === 'always') change({ ...value, popupMode }) }}><option value="never">{t('popupNever')}</option><option value="unfocused">{t('popupUnfocused')}</option><option value="always">{t('popupAlways')}</option></select>
+      {value !== undefined && <Fragment>
+        <div className={styles.row}>
+          <div className={styles.rowMain}>
+            <label className={styles.rowTitle} htmlFor="dsh-notifications-popup-mode">{t('popupMode')}</label>
+          </div>
+          <select id="dsh-notifications-popup-mode" className={styles.select} value={value.popupMode ?? (value.desktop ? 'unfocused' : 'never')} disabled={blocked} onChange={event => { const popupMode = event.currentTarget.value; if (popupMode === 'never' || popupMode === 'unfocused' || popupMode === 'always') change({ ...value, popupMode }) }}>
+            <option value="never">{t('popupNever')}</option>
+            <option value="unfocused">{t('popupUnfocused')}</option>
+            <option value="always">{t('popupAlways')}</option>
+          </select>
         </div>
-        <div className={styles.field}>
-          <Checkbox label={t('soundEnabled')} checked={value.soundEnabled ?? true} disabled={blocked} onChange={soundEnabled => change({ ...value, soundEnabled })} />
+        <div className={styles.row}>
+          <div className={styles.rowMain}>
+            <span className={styles.rowTitle}>{t('soundEnabled')}</span>
+          </div>
+          <div className={styles.rowActions}>
+            <Switch label={t('soundEnabled')} checked={value.soundEnabled ?? true} disabled={blocked} onChange={soundEnabled => change({ ...value, soundEnabled })} />
+          </div>
         </div>
-        <div className={styles.field} data-notification-volume>
-          <label htmlFor="dsh-notifications-volume">{t('volume')} · <output>{value.volume}%</output></label>
-          <input id="dsh-notifications-volume" type="range" min={0} max={100} step={1} aria-label={t('volume')} value={value.volume} disabled={blocked} onChange={event => { const volume = event.currentTarget.valueAsNumber; if (Number.isFinite(volume)) change({ ...value, volume }) }} />
-          <p className={styles.hint}>{t('volumeHint')}</p>
+        <div className={styles.row}>
+          <div className={styles.rowMain}>
+            <label className={styles.rowTitle} htmlFor="dsh-notifications-volume">{t('volume')}</label>
+            <p className={styles.rowHint}>{t('volumeHint')}</p>
+          </div>
+          <div className={styles.rowActions}>
+            <output className={styles.output} htmlFor="dsh-notifications-volume">{value.volume}%</output>
+            <input id="dsh-notifications-volume" className={styles.slider} type="range" min={0} max={100} step={1} value={value.volume} disabled={blocked} onChange={event => { const volume = event.currentTarget.valueAsNumber; if (Number.isFinite(volume)) change({ ...value, volume }) }} />
+          </div>
         </div>
-        <div className={styles.field}>
-          <Checkbox label={t('goalRounds')} checked={value.goalRounds} disabled={blocked} onChange={goalRounds => change({ ...value, goalRounds })} />
-          <p className={styles.hint}>{t('goalRoundsHint')}</p>
+        <div className={styles.row}>
+          <div className={styles.rowMain}>
+            <span className={styles.rowTitle}>{t('goalRounds')}</span>
+            <p className={styles.rowHint}>{t('goalRoundsHint')}</p>
+          </div>
+          <div className={styles.rowActions}>
+            <Switch label={t('goalRounds')} checked={value.goalRounds} disabled={blocked} onChange={goalRounds => change({ ...value, goalRounds })} />
+          </div>
         </div>
-        <div className={styles.field}>
-          <Checkbox label={t('subagentWake')} checked={value.subagentWake} disabled={blocked} onChange={subagentWake => change({ ...value, subagentWake })} />
-          <p className={styles.hint}>{t('subagentWakeHint')}</p>
+        <div className={styles.row}>
+          <div className={styles.rowMain}>
+            <span className={styles.rowTitle}>{t('subagentWake')}</span>
+            <p className={styles.rowHint}>{t('subagentWakeHint')}</p>
+          </div>
+          <div className={styles.rowActions}>
+            <Switch label={t('subagentWake')} checked={value.subagentWake} disabled={blocked} onChange={subagentWake => change({ ...value, subagentWake })} />
+          </div>
         </div>
-        <div className={styles.field}>
-          <Checkbox label={t('backgroundWake')} checked={value.backgroundWake} disabled={blocked} onChange={backgroundWake => change({ ...value, backgroundWake })} />
-          <p className={styles.hint}>{t('backgroundWakeHint')}</p>
+        <div className={styles.row}>
+          <div className={styles.rowMain}>
+            <span className={styles.rowTitle}>{t('backgroundWake')}</span>
+            <p className={styles.rowHint}>{t('backgroundWakeHint')}</p>
+          </div>
+          <div className={styles.rowActions}>
+            <Switch label={t('backgroundWake')} checked={value.backgroundWake} disabled={blocked} onChange={backgroundWake => change({ ...value, backgroundWake })} />
+          </div>
         </div>
-        <div data-notification-categories>
-          {kinds.map(kind => {
-            const file = capability.customFiles?.[kind], busy = capability.customBusy?.[kind] === true, error = capability.customErrors?.[kind]
-            const errorKey = error === 'too-large' ? 'customTooLarge' : error === 'invalid-audio' || error === 'empty' || error === 'unsupported-type' ? 'customInvalid' : 'customFailed'
-            return <div key={kind} data-notification-kind={kind} className={styles.row}>
-            <Checkbox label={t(kind)} checked={value[kind].enabled} disabled={blocked} onChange={enabled => change({ ...value, [kind]: { ...value[kind], enabled } })} />
-            <div className={styles.soundControls} data-notification-sound-controls>
-              <select aria-label={t('soundFor', { kind: t(kind) })} value={value[kind].sound} disabled={blocked} onChange={event => { const sound = sounds.find(item => item === event.currentTarget.value); if (sound !== undefined) change({ ...value, [kind]: { ...value[kind], sound } }) }}>{sounds.map(sound => <option key={sound} value={sound}>{t(sound)}</option>)}</select>
-              <Button size="sm" variant="ghost" aria-label={t('previewFor', { kind: t(kind) })} disabled={capability.audio === 'unsupported'} onClick={() => { void props.preview(value[kind].sound, value.volume, kind) }}>{t('preview')}</Button>
+        {kinds.map(kind => {
+          const file = capability.customFiles?.[kind], busy = capability.customBusy?.[kind] === true, error = capability.customErrors?.[kind]
+          const errorKey = error === 'too-large' ? 'customTooLarge' : error === 'invalid-audio' || error === 'empty' || error === 'unsupported-type' ? 'customInvalid' : 'customFailed'
+          const customStatus = !capability.customAvailable ? t('customUnavailable') : error ? t(errorKey) : !file ? t('customMissing') : t('customHint')
+          return <Fragment key={kind}>
+            <div className={styles.row} data-notification-kind={kind}>
+              <div className={styles.rowMain}>
+                <span className={styles.rowTitle}>{t(kind)}</span>
+              </div>
+              <div className={styles.rowActions}>
+                <Switch label={t(kind)} checked={value[kind].enabled} disabled={blocked} onChange={enabled => change({ ...value, [kind]: { ...value[kind], enabled } })} />
+              </div>
             </div>
-            {value[kind].sound === 'custom' && <div className={styles.custom} data-notification-custom>
-              <span data-notification-file title={file?.name ?? t('noFile')}>{file?.name ?? t('noFile')}</span>
-              <Button size="sm" variant="outline" disabled={busy || !capability.customAvailable || capability.audio === 'unsupported'} aria-label={t('importFor', { kind: t(kind) })} onClick={() => fileInputs.current[kind]?.click()}>{t(file ? 'replaceSound' : 'importSound')}</Button>
-              {file && <Button size="sm" variant="ghost" disabled={busy} aria-label={t('removeFor', { kind: t(kind) })} onClick={() => { void props.removeCustomSound(kind) }}>{t('removeSound')}</Button>}
-              <input ref={element => { fileInputs.current[kind] = element }} type="file" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus" hidden aria-label={t('audioFileFor', { kind: t(kind) })} disabled={busy || !capability.customAvailable} onChange={event => { const selected = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (selected !== undefined) void props.importCustomSound(kind, selected) }} />
-              <span className={styles.hint} data-notification-custom-status>{!capability.customAvailable ? t('customUnavailable') : error ? t(errorKey) : !file ? t('customMissing') : t('customHint')}</span>
+            {/* 四行共用一句「提示音」标签，所以 select 的可访问名字仍由 aria-label 给出。 */}
+            <div className={styles.row}>
+              <div className={styles.rowMain}>
+                <span className={styles.rowTitle}>{t('sound')}</span>
+              </div>
+              <div className={styles.rowActions}>
+                <select className={styles.select} aria-label={t('soundFor', { kind: t(kind) })} value={value[kind].sound} disabled={blocked} onChange={event => { const sound = sounds.find(item => item === event.currentTarget.value); if (sound !== undefined) change({ ...value, [kind]: { ...value[kind], sound } }) }}>
+                  {sounds.map(sound => <option key={sound} value={sound}>{t(sound)}</option>)}
+                </select>
+                <Button size="sm" variant="ghost" aria-label={t('previewFor', { kind: t(kind) })} disabled={capability.audio === 'unsupported'} onClick={() => { void props.preview(value[kind].sound, value.volume, kind) }}>{t('preview')}</Button>
+              </div>
+            </div>
+            {value[kind].sound === 'custom' && <div className={styles.row}>
+              <div className={styles.rowMain}>
+                <span className={styles.rowTitle}>{t('custom')}</span>
+                <p className={styles.rowHint}>
+                  <span data-notification-file title={file?.name ?? t('noFile')}>{file?.name ?? t('noFile')}</span>
+                  {' · '}{customStatus}
+                </p>
+              </div>
+              <div className={styles.rowActions}>
+                <Button size="sm" variant="outline" disabled={busy || !capability.customAvailable || capability.audio === 'unsupported'} aria-label={t('importFor', { kind: t(kind) })} onClick={() => fileInputs.current[kind]?.click()}>{t(file ? 'replaceSound' : 'importSound')}</Button>
+                {file && <Button size="sm" variant="ghost" disabled={busy} aria-label={t('removeFor', { kind: t(kind) })} onClick={() => { void props.removeCustomSound(kind) }}>{t('removeSound')}</Button>}
+                <input ref={element => { fileInputs.current[kind] = element }} type="file" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus" hidden aria-label={t('audioFileFor', { kind: t(kind) })} disabled={busy || !capability.customAvailable} onChange={event => { const selected = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (selected !== undefined) void props.importCustomSound(kind, selected) }} />
+              </div>
             </div>}
-          </div>})}
-        </div>
-        {conflicted && <p role="alert" className={styles.error}>{t('conflict')}</p>}
-        <div className={styles.formActions} data-notification-actions><Button size="sm" variant="ghost" disabled={draft === null || write === 'saving'} onClick={discard}>{t('discard')}</Button></div>
-      </div>}
+          </Fragment>
+        })}
+        {/* 草稿撞上别处的编辑：官方外框只提供「保存」，所以给一条说明和一个退出的入口。 */}
+        {conflicted && <div className={styles.conflict}>
+          <p role="alert" className={styles.rowHint}>{t('conflict')}</p>
+          <Button size="sm" variant="ghost" onClick={discard}>{t('discard')}</Button>
+        </div>}
+      </Fragment>}
     </SettingsForm>
   </section>
 }

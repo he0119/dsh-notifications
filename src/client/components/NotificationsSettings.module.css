@@ -1,159 +1,104 @@
 /*
- * Notification settings on the Plugins page. Layout follows DSH's native
- * two-column settings rows: label on the left, control on the right. Every
- * selector is rooted at .root so other plugin forms keep their own metrics;
- * colours, radii and focus rings stay on the native --dsw-* tokens.
+ * 通知配置卡：与 DSH 设置页同一套行节奏——一行一个决定，左边一句话，右边它的控件，
+ * 行与行之间一条 0.5px 分隔线。开关、状态点、按钮全部来自官方控件库，这里只负责排布，
+ * 以及原生 select / range 的外观；颜色、圆角、焦点环一律取宿主的 --dsw-* 变量，
+ * 深浅主题自动跟着走。
+ *
+ * 只作用于本卡：所有选择器都挂在 .root 下，宿主其它插件表单的排布不受影响。
  */
-
 .root {
-  container-type: inline-size;
-  display: grid;
-  gap: 0;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  color: var(--dsw-alias-label-primary, inherit);
-  /* English uses DSH's bundled Montserrat; the variable already falls back to
-     the system stack, which is how Chinese is rendered on the official site. */
-  font-family: var(--dsw-font-family-brand, inherit);
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.5;
+  /* 窄面板按卡片自身宽度折叠，而不是按视口宽度。 */
+  container-type: inline-size;
 }
 
-.root,
-.root *,
-.root *::before,
-.root *::after {
-  box-sizing: border-box;
-}
-
-/* Status strip: a state dot + one short summary, with the actions on the right. */
-.statusRow {
+.row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 8px;
-  min-height: 28px;
-  padding: 10px 0;
-  border-bottom: 0.5px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.34));
-}
-
-.stateDot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.stateDotOk {
-  background: var(--dsw-alias-state-success-primary, #2f9e44);
-}
-
-.stateDotAttention {
-  background: var(--dsw-alias-state-warn-primary, #e0a316);
-}
-
-.statusText {
-  flex: 1;
+  justify-content: space-between;
+  gap: 24px;
   min-width: 0;
-  color: var(--dsw-alias-label-secondary, inherit);
-  font-size: 12px;
-  line-height: 18px;
+  padding: 16px 0;
 }
 
-.actions {
-  display: inline-flex;
-  flex-wrap: wrap;
+.row + .row {
+  border-top: 0.5px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.34));
+}
+
+/* 左边这段：标题一行，必要时紧跟一句说明。 */
+.rowMain {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rowTitle {
+  display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
-}
-
-/* Two-column field: label on the left, control on the right. */
-.field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 190px);
-  align-items: center;
-  gap: 8px 12px;
-  min-width: 0;
-  padding: 11px 0;
-  border-bottom: 0.5px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.34));
-}
-
-.field > label {
-  min-width: 0;
+  margin: 0;
   color: var(--dsw-alias-label-primary, inherit);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 20px;
 }
 
-.field output {
-  color: var(--dsw-alias-label-primary, inherit);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Checkbox fields: label text on the left, the native box flipped to the right. */
-.field > label:has(input[type='checkbox']) {
-  display: flex;
-  grid-column: 1 / -1;
-  flex-direction: row-reverse;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-}
-
-.field > label:has(input[type='checkbox']) > span {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.hint {
-  grid-column: 1 / -1;
-  margin: -2px 0 0;
-  color: var(--dsw-alias-label-tertiary, inherit);
+.rowHint {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary, inherit);
   font-size: 12px;
   line-height: 18px;
   overflow-wrap: anywhere;
 }
 
-.error {
-  margin: 12px 0 0;
-  color: var(--dsw-alias-state-error-primary, inherit);
-  font-size: 12px;
+/* 右边这段：一个或几个控件，宽度按内容算，不被左边挤扁；折行时也贴着右边缘。 */
+.rowActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-inline-start: auto;
 }
 
-/* Native selects follow the official card's select styling. */
-.field select,
-.soundControls select {
-  min-height: 32px;
+/* 原生下拉：尺寸与边框跟官方插件配置表单里的 select 一致。 */
+.select {
   min-width: 0;
-  max-width: 100%;
+  max-width: 220px;
+  min-height: 32px;
   padding: 0 8px;
   color: var(--dsw-alias-label-primary, inherit);
-  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, transparent));
+  background: var(--dsw-alias-bg-base, transparent);
   border: 0.5px solid var(--dsw-alias-border-l4, rgba(128, 128, 128, 0.44));
-  border-radius: var(--dsw-radius-md, 6px);
+  border-radius: var(--dsw-radius-md, 12px);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
 }
 
-.field select:disabled,
-.soundControls select:disabled {
+.select:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.field select:focus-visible,
-.soundControls select:focus-visible {
+.select:focus-visible {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary, currentColor));
   outline-offset: 1px;
 }
 
-.field input[type='range'] {
-  width: 100%;
+/* 音量数字固定在滑杆左边，拖动时不会把滑杆挤来挤去。 */
+.output {
+  min-width: 4ch;
+  color: var(--dsw-alias-label-primary, inherit);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.slider {
+  width: 190px;
   min-width: 0;
   height: 20px;
   margin: 0;
@@ -161,87 +106,52 @@
   cursor: pointer;
 }
 
-.field input[type='range']:disabled {
+.slider:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
-/* Category rows: label left, sound + preview on the right. */
-[data-notification-categories] {
-  min-width: 0;
+.slider:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary, currentColor));
+  outline-offset: 2px;
 }
 
-.row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 190px);
-  align-items: center;
-  gap: 8px 12px;
-  min-width: 0;
-  padding: 11px 0;
-  border-bottom: 0.5px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.34));
-}
-
-.row > label:has(input[type='checkbox']) {
+/* 草稿过期的提示：与行同一节奏，说明在左、退出的按钮在右。 */
+.conflict {
   display: flex;
-  flex-direction: row-reverse;
-  justify-content: flex-end;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 16px;
   min-width: 0;
+  padding: 12px 0;
+  border-top: 0.5px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.34));
 }
 
-.row > label:has(input[type='checkbox']) > span {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 500;
+.conflict > .rowHint {
+  color: var(--dsw-alias-state-error-primary, inherit);
 }
 
-.soundControls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  min-width: 0;
-}
-
-/* Custom audio sits on its own line inside its category row. */
-.custom {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  min-width: 0;
-}
-
-.custom > [data-notification-file] {
-  min-width: 0;
-  max-width: 32ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.custom > .hint {
-  flex: 1 1 100%;
-}
-
-.formActions {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
-
-/* Narrow panel: stack the two columns in DOM order. */
-@container (max-width: 460px) {
-  .field,
+/* 窄面板：说明占满一行，控件落到下一行的右边缘，和宽布局同一根中线。 */
+@container (max-width: 480px) {
   .row {
-    grid-template-columns: minmax(0, 1fr);
+    flex-wrap: wrap;
+    gap: 8px 16px;
   }
 
-  .soundControls {
-    justify-content: flex-start;
+  .rowMain {
+    flex: 1 1 100%;
+  }
+
+  .rowActions {
+    max-width: 100%;
+  }
+
+  .select {
+    max-width: 100%;
+  }
+
+  .slider {
+    flex: 1;
+    width: 120px;
   }
 }

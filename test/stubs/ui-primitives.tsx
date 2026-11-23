@@ -2,14 +2,15 @@
  * `@deepseek-ai/dsh-client-ui-primitives` 的测试替身。
  *
  * 真实包是一个大控件库：它的产物直接 import 了 shiki、katex、micromark、simple-icons 等一整套渲染
- * 依赖（却没有在自己的 package.json 里声明）。本包的界面只用它的四个入口——按钮、勾选框、设置表单
- * 外框，以及「关掉最上层弹窗」这两个函数——为一次测试渲染把整套代码编辑/图标栈装进开发依赖并不划算。
+ * 依赖（却没有在自己的 package.json 里声明）。本包的界面只用它的几个入口——按钮、开关、状态点、
+ * 设置表单外框，以及「关掉最上层弹窗」这两个函数——为一次测试渲染把整套代码编辑/图标栈装进开发依赖
+ * 并不划算。
  *
  * 替身只保证**语义**：可访问名字、禁用状态、勾选与点击都照真实控件的行为走；外观不参与断言。
  * 官方控件自身的渲染由宿主负责，本包测的是自己那一层接线。
  */
-import type { CSSProperties, ChangeEvent, ReactNode, Ref } from 'react'
-import { createElement, useEffect } from 'react'
+import type { CSSProperties, ReactNode, Ref } from 'react'
+import { createElement, useEffect, useRef } from 'react'
 
 /** 关掉最上层弹窗用的选择器：真实包认它自己那套 class，这里只认测试里用 `data-shortcut-modal` 标出来的弹窗。 */
 export const modalSelector = '[data-shortcut-modal]'
@@ -61,27 +62,50 @@ export function Button({ children, disabled, onClick, className, style, type = '
   )
 }
 
-interface CheckboxProps {
-  label?: ReactNode
+interface SwitchProps {
+  label: string
   checked?: boolean
   disabled?: boolean
+  title?: string
   onChange?: (checked: boolean) => void
   className?: string
 }
 
-/** 带文字的勾选框：可访问名字来自 `<label>`，与真实控件一致。 */
-export function Checkbox({ label, checked, disabled, onChange, className }: CheckboxProps) {
+/** 开关：真实控件是 `<button role="switch" aria-checked>`，可访问名字只来自 `label`。 */
+export function Switch({ label, checked, disabled, title, onChange, className }: SwitchProps) {
   return createElement(
-    'label',
-    { className, 'data-stub': 'checkbox' },
-    createElement('input', {
-      type: 'checkbox',
-      checked: checked === true,
+    'button',
+    {
+      type: 'button',
+      role: 'switch',
+      'aria-checked': checked === true,
+      'aria-label': label,
+      title,
       disabled,
-      onChange: (event: ChangeEvent<HTMLInputElement>) => { onChange?.(event.currentTarget.checked) },
-    }),
-    label,
+      className,
+      'data-stub': 'switch',
+      onClick: () => { onChange?.(checked !== true) },
+    },
   )
+}
+
+interface StateDotProps {
+  state: string
+  size?: number
+  className?: string
+  appearance?: 'dot' | 'step'
+}
+
+/** 状态点：真实控件是装饰性的（aria-hidden），颜色由 data-state 决定。 */
+export function StateDot({ state, size, className, appearance }: StateDotProps) {
+  return createElement('span', {
+    'data-stub': 'state-dot',
+    'data-state': state,
+    'data-size': size,
+    'data-appearance': appearance,
+    'aria-hidden': true,
+    className,
+  })
 }
 
 interface SettingsFormLabels {
@@ -90,7 +114,6 @@ interface SettingsFormLabels {
   saveFailed?: string
   save?: string
   saving?: string
-  discard?: string
 }
 
 interface SettingsFormState {
@@ -111,18 +134,26 @@ interface SettingsFormProps {
   className?: string
 }
 
-/** 设置表单外框：内容原样渲染，底部给一个 Save（状态不满足时禁用）与可选的 Discard。 */
+/**
+ * 设置表单外框：命名空间不可用时只说一句；没有 Save/Discard 之外的入口，也不画 Discard 按钮
+ * ——真实控件靠卸载时丢弃草稿，界面上的「放弃」只属于离开这一页。
+ */
 export function SettingsForm({ labels, state, onSave, onDiscard, children, className }: SettingsFormProps) {
-  const blocked = !state.available || !state.writable || state.invalid || state.saving
+  const discard = useRef(onDiscard)
+  discard.current = onDiscard
+  useEffect(() => () => { discard.current?.() }, [])
+  if (!state.available) return createElement('p', { role: 'status', 'data-stub': 'settings-form-unavailable' }, labels.unavailable)
+  const blocked = !state.dirty || state.invalid || state.saving
   return createElement(
     'div',
     { className, 'data-stub': 'settings-form' },
+    state.writable ? null : createElement('p', { role: 'status' }, labels.readOnly),
     children,
     createElement(
       'div',
       { 'data-stub': 'settings-form-actions' },
+      state.failed === true ? createElement('p', { role: 'status' }, labels.saveFailed) : null,
       createElement('button', { type: 'button', disabled: blocked, onClick: onSave }, state.saving ? labels.saving : labels.save),
-      onDiscard === undefined ? null : createElement('button', { type: 'button', onClick: onDiscard }, labels.discard),
     ),
   )
 }
