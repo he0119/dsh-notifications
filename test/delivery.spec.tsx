@@ -125,13 +125,14 @@ it('reports an unsupported mobile constructor without replacing it with a page t
   await delivery.dispose()
 })
 
-function settingsFixture(writable = true) {
-  let snapshot: ConfigFormSnapshot<NotificationSettings> = { status: 'ready', value: preferences, writable, revision: 7 }
+function settingsFixture(writable = true, initial: Partial<NotificationSettings> = {}) {
+  const current: NotificationSettings = { ...preferences, ...initial }
+  let snapshot: ConfigFormSnapshot<NotificationSettings> = { status: 'ready', value: current, writable, revision: 7 }
   const requestPermission = vi.fn(async () => {}), preview = vi.fn(async (_sound: string) => true), test = vi.fn(async (_sound: string) => {})
   const saveSettings = vi.fn(async (value: NotificationSettings, revision: number | undefined) => { snapshot = { ...snapshot, value, revision: (revision ?? 0) + 1 }; return true })
   const t: NotificationSettingsProps['t'] = (key, values) => { let text = en[key]; for (const [name, value] of Object.entries(values ?? {})) text = text.replace('{' + name + '}', String(value)); return text }
   const importCustomSound = vi.fn(async (_kind: string, _file: File) => true), removeCustomSound = vi.fn(async (_kind: string) => true)
-  const props: NotificationSettingsProps = { importCustomSound, removeCustomSound, t, useNotificationPreferences: selector => selector(preferences), useNotificationSettings: selector => selector(snapshot), useNotificationCapabilities: selector => selector({ supported: true, secure: true, permission: 'default', audio: 'unknown', failed: false }), requestPermission, preview, test, saveSettings }
+  const props: NotificationSettingsProps = { importCustomSound, removeCustomSound, t, useNotificationPreferences: selector => selector(current), useNotificationSettings: selector => selector(snapshot), useNotificationCapabilities: selector => selector({ supported: true, secure: true, permission: 'default', audio: 'unknown', failed: false }), requestPermission, preview, test, saveSettings }
   const setRevision = (next: number): void => { snapshot = { ...snapshot, revision: next } }
   return { props, requestPermission, preview, test, saveSettings, importCustomSound, removeCustomSound, setRevision }
 }
@@ -153,6 +154,27 @@ it('edits each category without autosaving and performs permission or preview on
   fireEvent.click(screen.getByRole('button', { name: en.save }))
   await waitFor(() => expect(controls.saveSettings).toHaveBeenCalledWith({ ...preferences, popupMode: 'unfocused', soundEnabled: true, question: { enabled: true, sound: 'alert' }, approval: { enabled: false, sound: 'double' } }, 7))
 })
+it('offers a restore link on exactly the rows that differ from their defaults', async () => {
+  const controls = settingsFixture(true, { volume: 30, goalRounds: true, completed: { enabled: true, sound: 'alert' } })
+  render(<NotificationsSettings {...controls.props} />)
+  // 音量、会话完成两项偏离默认；「目标每轮」是勾选项，取消勾选就等于恢复，不另给链接。
+  expect(screen.getAllByRole('button', { name: /Restore the default for/ })).toHaveLength(2)
+  expect(screen.queryByRole('button', { name: en.resetFor.replace('{name}', en.wakeGroup) })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: en.resetFor.replace('{name}', en.volume) }))
+  // 只把这一字段填回默认：还没点保存，一行都不写。
+  expect(controls.saveSettings).not.toHaveBeenCalled()
+  expect(screen.getAllByRole('button', { name: /Restore the default for/ })).toHaveLength(1)
+  fireEvent.click(screen.getByRole('button', { name: en.save }))
+  await waitFor(() => expect(controls.saveSettings).toHaveBeenCalledOnce())
+  expect(controls.saveSettings.mock.calls[0]![0]).toMatchObject({ volume: 80, goalRounds: true, completed: { enabled: true, sound: 'alert' } })
+})
+
+it('shows no restore link while every row holds its default', () => {
+  const controls = settingsFixture()
+  render(<NotificationsSettings {...controls.props} />)
+  expect(screen.queryByRole('button', { name: /Restore the default for/ })).toBeNull()
+})
+
 it('shows a visible notification-test result in the status line', () => {
   const controls = settingsFixture()
   controls.props.useNotificationCapabilities = selector => selector({ supported: true, secure: true, permission: 'granted', audio: 'ready', failed: false, testStatus: 'shown' })

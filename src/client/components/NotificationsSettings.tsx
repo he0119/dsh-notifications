@@ -1,4 +1,5 @@
 import { normalizeNotificationPreferences } from '../logic/preferences.ts'
+import { DEFAULT_RULES, DEFAULT_SOUND_ENABLED, DEFAULT_VOLUME, defaultPopupMode } from '../../defaults.ts'
 /** Native revision-fenced settings and user-activated notification checks. */
 import { Fragment, useId, useRef, useState } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
@@ -53,6 +54,10 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
   const hostFieldsReady = typeof snapshot.value?.volume === 'number'
   const blocked = !hostFieldsReady || snapshot.status !== 'ready' || !snapshot.writable || write === 'saving' || snapshot.revision === undefined
   const conflicted = draft !== null && draft.revision !== snapshot.revision
+  /** 某一行偏离出厂值时才出现的「恢复默认」：只把这一字段填回默认，仍由「保存更改」写。 */
+  const resetLink = (current: NotificationSettings, name: string, changed: boolean, restore: (from: NotificationSettings) => NotificationSettings) => changed
+    ? <button type="button" className={styles.reset} disabled={blocked} aria-label={t('resetFor', { name })} onClick={() => change(restore(current))}>{t('reset')}</button>
+    : null
   const change = (next: NotificationSettings): void => { if (blocked) return; setDraft({ value: next, revision: draft?.revision ?? snapshot.revision }); setWrite('idle') }
   const discard = (): void => { setDraft(null); setWrite('idle') }
   const save = (): void => {
@@ -98,17 +103,21 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
           <div className={styles.rowMain}>
             <label className={styles.rowTitle} htmlFor="dsh-notifications-popup-mode">{t('popupMode')}</label>
           </div>
-          <select id="dsh-notifications-popup-mode" className={styles.select} value={value.popupMode ?? (value.desktop ? 'unfocused' : 'never')} disabled={blocked} onChange={event => { const popupMode = event.currentTarget.value; if (popupMode === 'never' || popupMode === 'unfocused' || popupMode === 'always') change({ ...value, popupMode }) }}>
-            <option value="never">{t('popupNever')}</option>
-            <option value="unfocused">{t('popupUnfocused')}</option>
-            <option value="always">{t('popupAlways')}</option>
-          </select>
+          <div className={styles.rowActions}>
+            {resetLink(value, t('popupMode'), (value.popupMode ?? defaultPopupMode(value.desktop)) !== defaultPopupMode(value.desktop), current => ({ ...current, popupMode: defaultPopupMode(value.desktop) }))}
+            <select id="dsh-notifications-popup-mode" className={styles.select} value={value.popupMode ?? (value.desktop ? 'unfocused' : 'never')} disabled={blocked} onChange={event => { const popupMode = event.currentTarget.value; if (popupMode === 'never' || popupMode === 'unfocused' || popupMode === 'always') change({ ...value, popupMode }) }}>
+              <option value="never">{t('popupNever')}</option>
+              <option value="unfocused">{t('popupUnfocused')}</option>
+              <option value="always">{t('popupAlways')}</option>
+            </select>
+          </div>
         </div>
         <div className={styles.row}>
           <div className={styles.rowMain}>
             <span className={styles.rowTitle}>{t('soundEnabled')}</span>
           </div>
           <div className={styles.rowActions}>
+            {resetLink(value, t('soundEnabled'), (value.soundEnabled ?? true) !== DEFAULT_SOUND_ENABLED, current => ({ ...current, soundEnabled: DEFAULT_SOUND_ENABLED }))}
             <Switch label={t('soundEnabled')} checked={value.soundEnabled ?? true} disabled={blocked} onChange={soundEnabled => change({ ...value, soundEnabled })} />
           </div>
         </div>
@@ -118,6 +127,7 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
             <p className={styles.rowHint}>{t('volumeHint')}</p>
           </div>
           <div className={styles.rowActions}>
+            {resetLink(value, t('volume'), value.volume !== DEFAULT_VOLUME, current => ({ ...current, volume: DEFAULT_VOLUME }))}
             <output className={styles.output} htmlFor="dsh-notifications-volume">{value.volume}%</output>
             <input id="dsh-notifications-volume" className={styles.slider} type="range" min={0} max={100} step={1} value={value.volume} disabled={blocked} onChange={event => { const volume = event.currentTarget.valueAsNumber; if (Number.isFinite(volume)) change({ ...value, volume }) }} />
           </div>
@@ -133,6 +143,7 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
                 <span className={styles.rowTitle}>{t(kind)}</span>
               </div>
               <div className={styles.rowActions}>
+                {resetLink(value, t(kind), value[kind].enabled !== DEFAULT_RULES[kind].enabled || value[kind].sound !== DEFAULT_RULES[kind].sound, current => ({ ...current, [kind]: { ...DEFAULT_RULES[kind] } }))}
                 <select className={styles.select} aria-label={t('soundFor', { kind: t(kind) })} value={value[kind].sound} disabled={blocked} onChange={event => { const sound = sounds.find(item => item === event.currentTarget.value); if (sound !== undefined) change({ ...value, [kind]: { ...value[kind], sound } }) }}>
                   {sounds.map(sound => <option key={sound} value={sound}>{t(sound)}</option>)}
                 </select>

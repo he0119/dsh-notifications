@@ -139,6 +139,30 @@
   border-top: 0.5px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.34));
 }
 
+/* 行内「恢复默认」：照官方字段控件的 .reset，12px 次要色文字按钮，只有偏离默认值的行才有。 */
+.reset {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dsw-alias-label-secondary, inherit);
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .reset:hover:not(:disabled) {
+    color: var(--dsw-alias-label-primary, inherit);
+  }
+}
+
+.reset:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 /* 自定义音频属于上面那个事件：不画分隔线，标题降一级。 */
 .row + .row.customRow {
   padding-top: 2px;
