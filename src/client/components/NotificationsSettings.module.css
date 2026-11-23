@@ -63,6 +63,23 @@
   margin-inline-start: auto;
 }
 
+/* 事件行里的开关与提示音之间留一段距离：前者管这件事要不要提醒，后者挑声音。 */
+.toggle {
+  margin-inline-start: 10px;
+}
+
+/* 自定义音频属于上面那个事件：不画分隔线，标题降一级。 */
+.row + .row.customRow {
+  padding-top: 2px;
+  border-top: 0;
+}
+
+.subTitle {
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: 13px;
+  line-height: 20px;
+}
+
 /* 原生下拉：尺寸与边框跟官方插件配置表单里的 select 一致。 */
 .select {
   min-width: 0;

@@ -142,29 +142,23 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
           const errorKey = error === 'too-large' ? 'customTooLarge' : error === 'invalid-audio' || error === 'empty' || error === 'unsupported-type' ? 'customInvalid' : 'customFailed'
           const customStatus = !capability.customAvailable ? t('customUnavailable') : error ? t(errorKey) : !file ? t('customMissing') : t('customHint')
           return <Fragment key={kind}>
+            {/* 事件和它的提示音在同一行：左边是这件事，右边依次是音色、试听、开关。 */}
             <div className={styles.row} data-notification-kind={kind}>
               <div className={styles.rowMain}>
                 <span className={styles.rowTitle}>{t(kind)}</span>
-              </div>
-              <div className={styles.rowActions}>
-                <Switch label={t(kind)} checked={value[kind].enabled} disabled={blocked} onChange={enabled => change({ ...value, [kind]: { ...value[kind], enabled } })} />
-              </div>
-            </div>
-            {/* 四行共用一句「提示音」标签，所以 select 的可访问名字仍由 aria-label 给出。 */}
-            <div className={styles.row}>
-              <div className={styles.rowMain}>
-                <span className={styles.rowTitle}>{t('sound')}</span>
               </div>
               <div className={styles.rowActions}>
                 <select className={styles.select} aria-label={t('soundFor', { kind: t(kind) })} value={value[kind].sound} disabled={blocked} onChange={event => { const sound = sounds.find(item => item === event.currentTarget.value); if (sound !== undefined) change({ ...value, [kind]: { ...value[kind], sound } }) }}>
                   {sounds.map(sound => <option key={sound} value={sound}>{t(sound)}</option>)}
                 </select>
                 <Button size="sm" variant="ghost" aria-label={t('previewFor', { kind: t(kind) })} disabled={capability.audio === 'unsupported'} onClick={() => { void props.preview(value[kind].sound, value.volume, kind) }}>{t('preview')}</Button>
+                <Switch className={styles.toggle} label={t(kind)} checked={value[kind].enabled} disabled={blocked} onChange={enabled => change({ ...value, [kind]: { ...value[kind], enabled } })} />
               </div>
             </div>
-            {value[kind].sound === 'custom' && <div className={styles.row}>
+            {/* 自定义音频是上面那一行的补充，所以不画分隔线、标题降一级。 */}
+            {value[kind].sound === 'custom' && <div className={[styles.row, styles.customRow].join(' ')}>
               <div className={styles.rowMain}>
-                <span className={styles.rowTitle}>{t('custom')}</span>
+                <span className={styles.subTitle}>{t('custom')}</span>
                 <p className={styles.rowHint}>
                   <span data-notification-file title={file?.name ?? t('noFile')}>{file?.name ?? t('noFile')}</span>
                   {' · '}{customStatus}
