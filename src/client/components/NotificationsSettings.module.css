@@ -68,6 +68,76 @@
   margin-inline-start: 10px;
 }
 
+/* 「会话完成」下面这组：照子智能体那张卡（SubagentModelSelectionFields）的带 legend 的 fieldset，
+ * 里面是可直接勾选的条目，而不是又一个开关行。 */
+.group {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0 0 8px;
+  padding: 10px;
+  border: 0.5px solid var(--dsw-alias-border-l4, rgba(128, 128, 128, 0.44));
+  border-radius: var(--dsw-radius-lg, 16px);
+}
+
+.group > legend {
+  padding: 0 4px;
+  color: var(--dsw-alias-label-secondary, inherit);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* 一条可勾选项：勾选框、13px 名字、11px 说明，整行可点。 */
+.groupItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px;
+  border-radius: var(--dsw-radius-md, 12px);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .groupItem:hover {
+    background: var(--dsw-alias-bg-layer-4, rgba(128, 128, 128, 0.12));
+  }
+}
+
+.groupItem > input[type='checkbox'] {
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--dsw-alias-brand-primary, currentColor);
+  cursor: inherit;
+}
+
+.groupText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.groupTitle {
+  color: var(--dsw-alias-label-primary, inherit);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.groupNote {
+  color: var(--dsw-alias-label-tertiary, inherit);
+  font-size: 11px;
+  line-height: 17px;
+  overflow-wrap: anywhere;
+}
+
+/* 组之后的第一行仍然要一条分隔线（原来是 .row + .row，这里被 fieldset 打断了）。 */
+.group + .row {
+  border-top: 0.5px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.34));
+}
+
 /* 自定义音频属于上面那个事件：不画分隔线，标题降一级。 */
 .row + .row.customRow {
   padding-top: 2px;

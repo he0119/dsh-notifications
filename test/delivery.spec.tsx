@@ -138,7 +138,8 @@ function settingsFixture(writable = true) {
 it('edits each category without autosaving and performs permission or preview only on explicit clicks', async () => {
   const controls = settingsFixture()
   render(<NotificationsSettings {...controls.props} />)
-  expect(screen.getAllByRole('switch')).toHaveLength(8)
+  expect(screen.getAllByRole('switch')).toHaveLength(5)
+  expect(screen.getAllByRole('checkbox')).toHaveLength(3)
   expect(controls.requestPermission).not.toHaveBeenCalled(); expect(controls.preview).not.toHaveBeenCalled(); expect(controls.test).not.toHaveBeenCalled()
   fireEvent.change(screen.getByRole('combobox', { name: 'Sound for Reply needed' }), { target: { value: 'alert' } })
   fireEvent.click(screen.getByRole('switch', { name: en.approval }))
@@ -157,6 +158,17 @@ it('shows a visible notification-test result in the status line', () => {
   controls.props.useNotificationCapabilities = selector => selector({ supported: true, secure: true, permission: 'granted', audio: 'ready', failed: false, testStatus: 'shown' })
   render(<NotificationsSettings {...controls.props} />)
   expect(screen.getByText(en.testShown)).toBeTruthy()
+})
+
+it('offers the extra completion moments as items under the completed switch', () => {
+  // 「目标每轮完成」这些是「会话完成」下面的可勾选项：会话完成关掉时它们没有意义，跟着一起收起来。
+  const controls = settingsFixture()
+  render(<NotificationsSettings {...controls.props} />)
+  expect(screen.getByRole('group', { name: en.wakeGroup })).toBeTruthy()
+  fireEvent.click(screen.getByRole('checkbox', { name: en.goalRounds }))
+  fireEvent.click(screen.getByRole('switch', { name: en.completed }))
+  expect(screen.queryByRole('checkbox', { name: en.goalRounds })).toBeNull()
+  expect(screen.queryByRole('group', { name: en.wakeGroup })).toBeNull()
 })
 
 it('only offers discarding a draft once another revision has landed', () => {

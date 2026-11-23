@@ -21,6 +21,12 @@ export interface NotificationForm extends ObservableSnapshot<ConfigFormSnapshot<
 export type NotificationSettingsProps = PropsRuntime<'plugins.bundle.config'> & InjectFace<NotificationSettingsInjected> & PropsLocale<typeof LOCALE_NS>
 const kinds: readonly NotificationKind[] = ['completed', 'interrupted', 'question', 'approval']
 const sounds: readonly NotificationSound[] = ['none', 'soft', 'double', 'chime', 'alert', 'custom']
+/** 「会话完成」下面那组开关：自动跑起来的回合结束时算不算完成。 */
+const wakeOptions = [
+  { field: 'goalRounds', label: 'goalRounds', hint: 'goalRoundsHint' },
+  { field: 'subagentWake', label: 'subagentWake', hint: 'subagentWakeHint' },
+  { field: 'backgroundWake', label: 'backgroundWake', hint: 'backgroundWakeHint' },
+] as const
 /**
  * 画这张通知配置卡：一个决定一行，排布与 DSH 设置页一致——左边一句话，右边它的控件。
  *
@@ -110,33 +116,6 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
             <input id="dsh-notifications-volume" className={styles.slider} type="range" min={0} max={100} step={1} value={value.volume} disabled={blocked} onChange={event => { const volume = event.currentTarget.valueAsNumber; if (Number.isFinite(volume)) change({ ...value, volume }) }} />
           </div>
         </div>
-        <div className={styles.row}>
-          <div className={styles.rowMain}>
-            <span className={styles.rowTitle}>{t('goalRounds')}</span>
-            <p className={styles.rowHint}>{t('goalRoundsHint')}</p>
-          </div>
-          <div className={styles.rowActions}>
-            <Switch label={t('goalRounds')} checked={value.goalRounds} disabled={blocked} onChange={goalRounds => change({ ...value, goalRounds })} />
-          </div>
-        </div>
-        <div className={styles.row}>
-          <div className={styles.rowMain}>
-            <span className={styles.rowTitle}>{t('subagentWake')}</span>
-            <p className={styles.rowHint}>{t('subagentWakeHint')}</p>
-          </div>
-          <div className={styles.rowActions}>
-            <Switch label={t('subagentWake')} checked={value.subagentWake} disabled={blocked} onChange={subagentWake => change({ ...value, subagentWake })} />
-          </div>
-        </div>
-        <div className={styles.row}>
-          <div className={styles.rowMain}>
-            <span className={styles.rowTitle}>{t('backgroundWake')}</span>
-            <p className={styles.rowHint}>{t('backgroundWakeHint')}</p>
-          </div>
-          <div className={styles.rowActions}>
-            <Switch label={t('backgroundWake')} checked={value.backgroundWake} disabled={blocked} onChange={backgroundWake => change({ ...value, backgroundWake })} />
-          </div>
-        </div>
         {kinds.map(kind => {
           const file = capability.customFiles?.[kind], busy = capability.customBusy?.[kind] === true, error = capability.customErrors?.[kind]
           const errorKey = error === 'too-large' ? 'customTooLarge' : error === 'invalid-audio' || error === 'empty' || error === 'unsupported-type' ? 'customInvalid' : 'customFailed'
@@ -170,6 +149,18 @@ export function NotificationsSettings(props: NotificationSettingsProps) {
                 <input ref={element => { fileInputs.current[kind] = element }} type="file" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.opus" hidden aria-label={t('audioFileFor', { kind: t(kind) })} disabled={busy || !capability.customAvailable} onChange={event => { const selected = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (selected !== undefined) void props.importCustomSound(kind, selected) }} />
               </div>
             </div>}
+            {/* 「会话完成」下面这组：勾上哪些额外时机也算一次完成（照子智能体那张卡的可勾选列表）。 */}
+            {kind === 'completed' && value.completed.enabled && <fieldset className={styles.group}>
+              <legend>{t('wakeGroup')}</legend>
+              {wakeOptions.map(option => <label key={option.field} className={styles.groupItem}>
+                <input type="checkbox" checked={value[option.field]} disabled={blocked} aria-label={t(option.label)}
+                  onChange={event => change({ ...value, [option.field]: event.currentTarget.checked })} />
+                <span className={styles.groupText}>
+                  <span className={styles.groupTitle}>{t(option.label)}</span>
+                  <span className={styles.groupNote}>{t(option.hint)}</span>
+                </span>
+              </label>)}
+            </fieldset>}
           </Fragment>
         })}
         {/* 草稿撞上别处的编辑：官方外框只提供「保存」，所以给一条说明和一个退出的入口。 */}
